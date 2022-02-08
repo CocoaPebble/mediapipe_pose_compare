@@ -1,6 +1,3 @@
-import json
-import sys
-from unittest import result
 import time
 import cv2
 import mediapipe as mp
@@ -95,7 +92,9 @@ while cap.isOpened():
         })
         point = [data_point.x, data_point.y, data_point.z]
 
-    frame_group = {}
+    frame_group = {}  # points in each frame
+
+    # select specific points for bvh
     for idx, ele in enumerate(keypoints):
         joint_name = landmark_names[(ele["keypoint_num"])]
         if joint_name in joint_list:
@@ -106,6 +105,7 @@ while cap.isOpened():
     frame_group['spine'] = get_spine(frame_group['mid_shoulder'], frame_group['mid_hip']).tolist()
     mp_dict[frame_num] = frame_group
 
+    # convert to array
     arr = []
     for i, joint_name in enumerate(joint_list):
         loc = frame_group[joint_name]
