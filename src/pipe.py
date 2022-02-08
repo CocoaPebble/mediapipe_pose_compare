@@ -1,26 +1,28 @@
 import json
 import sys
 from unittest import result
+import time
 import cv2
 import mediapipe as mp
 import numpy as np
+from mediapipe_skeleton import MediaPipeSkeleton
 
 landmark_names = [
-    'nose', 
-    'left_eye_inner', 'left_eye', 'left_eye_outer', 
+    'nose',
+    'left_eye_inner', 'left_eye', 'left_eye_outer',
     'right_eye_inner', 'right_eye', 'right_eye_outer',
-    'left_ear', 'right_ear', 
-    'mouth_left', 'mouth_right', 
-    'left_shoulder', 'right_shoulder', 
+    'left_ear', 'right_ear',
+    'mouth_left', 'mouth_right',
+    'left_shoulder', 'right_shoulder',
     'left_elbow', 'right_elbow',
-    'left_wrist', 'right_wrist', 
-    'left_pinky_1', 'right_pinky_1', 
-    'left_index_1', 'right_index_1', 
+    'left_wrist', 'right_wrist',
+    'left_pinky_1', 'right_pinky_1',
+    'left_index_1', 'right_index_1',
     'left_thumb_2', 'right_thumb_2',
-    'left_hip', 'right_hip', 
+    'left_hip', 'right_hip',
     'left_knee', 'right_knee',
-    'left_ankle', 'right_ankle', 
-    'left_heel', 'right_heel', 
+    'left_ankle', 'right_ankle',
+    'left_heel', 'right_heel',
     'left_foot_index', 'right_foot_index']
 
 joint_list = [
@@ -33,8 +35,25 @@ joint_list = [
     'right_shoulder', 'right_elbow', 'right_wrist'
 ]
 
+
+def get_center(a, b):
+    """Calculates pose center as point between hips."""
+    left_hip = np.array(a)
+    right_hip = np.array(b)
+    center = (left_hip + right_hip) * 0.5
+    return center
+
+
+def get_spine(a, b):
+    mid_hip = np.array(a)
+    mid_shoulder = np.array(b)
+    center = (mid_shoulder - mid_hip) * 0.25
+    return center
+
+
+stime = time.time()
 # video
-video_file = 'ropejump_cut.mp4'
+video_file = '../5.mp4'
 
 cap = cv2.VideoCapture(video_file)
 if not cap.isOpened():
@@ -49,14 +68,16 @@ mp_drawing = mp.solutions.drawing_utils
 mp_pose = mp.solutions.pose
 pose = mp_pose.Pose(model_complexity=2,
                     min_detection_confidence=0.5, min_tracking_confidence=0.5)
-
+mp_dict = {}
+poses = []
+full_array = []
 
 while cap.isOpened():
     success, image = cap.read()
     if not success:
         print("Ignoring empty camera frame.")
         break
-    
+
     frame_num += 1
     keypoints = []
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -72,35 +93,33 @@ while cap.isOpened():
             'Y': data_point.y,
             'Z': data_point.z,
         })
-    
-    mp_dict = {}
+        point = [data_point.x, data_point.y, data_point.z]
+
+    frame_group = {}
     for idx, ele in enumerate(keypoints):
-        if ele["frame"] != idx:
-            idx = ele["frame"]
-            mp_dict[idx] = {}
-        
         joint_name = landmark_names[(ele["keypoint_num"])]
-        print(idx, joint_name, ele)
-        mp_dict[idx][joint_name] = [ele["X"], ele["Y"], ele["Z"]]
+        if joint_name in joint_list:
+            frame_group[joint_name] = [ele["X"], ele["Y"], ele["Z"]]
 
-        if len(mp_dict[idx]) == len(landmark_names):
-            mp_dict[idx]['mid_hip'] = [0, 0, 0]
-            mp_dict[idx]['mid_shoulder'] = [0, 0, 0]
-            mp_dict[idx]['spine'] = [0, 0, 0]
+    frame_group['mid_hip'] = get_center(frame_group['left_hip'], frame_group['right_hip']).tolist()
+    frame_group['mid_shoulder'] = get_center(frame_group['left_shoulder'], frame_group['right_shoulder']).tolist()
+    frame_group['spine'] = get_spine(frame_group['mid_shoulder'], frame_group['mid_hip']).tolist()
+    mp_dict[frame_num] = frame_group
 
-            for i in range(3):
-                mp_dict[idx]['mid_hip'][i] = (
-                    mp_dict[idx]['left_hip'][i] + mp_dict[idx]['right_hip'][i]) * 0.5
-                mp_dict[idx]['mid_shoulder'][i] = (
-                    mp_dict[idx]['left_shoulder'][i] + mp_dict[idx]['right_shoulder'][i]) * 0.5
-                mp_dict[idx]['spine'][i] = (
-                    mp_dict[idx]['mid_shoulder'][i] - mp_dict[idx]['mid_hip'][i]) * 0.25
-    
-    first_key = list(mp_dict.keys())[0]
-    full_array = np.zeros((len(joint_list), 3))
+    arr = []
+    for i, joint_name in enumerate(joint_list):
+        loc = frame_group[joint_name]
+        arr.append(loc)
+    full_array.append(arr)
 
-    for i in range(len(joint_list)):
-        loc = np.array([mp_dict[index+int(first_key)][joint_list[i]]])
-        full_array[index, i, :] = loc
-    
-    print(full_array)
+npa = np.asarray(full_array, dtype=np.float32)
+print(npa.shape)
+
+mp = MediaPipeSkeleton()
+channels, header = mp.poses2bvh(npa)
+print(channels)
+subarr = channels[1][3:]
+
+endtime = time.time()
+print("run with ", video_file, "frame_num", frame_num)
+print(endtime - stime)
