@@ -48,9 +48,8 @@ def get_spine(a, b):
     return center
 
 
-stime = time.time()
 # video
-video_file = '../5.mp4'
+video_file = 'ropejump.mp4'
 
 cap = cv2.VideoCapture(video_file)
 if not cap.isOpened():
@@ -68,19 +67,26 @@ pose = mp_pose.Pose(model_complexity=2,
 mp_dict = {}
 poses = []
 full_array = []
+time2total = 0
+time3total = 0
+time4total = 0
+
 
 while cap.isOpened():
     success, image = cap.read()
     if not success:
         print("Ignoring empty camera frame.")
         break
-
+    
     frame_num += 1
     keypoints = []
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
     results = pose.process(image)
     world_landmarks = results.pose_world_landmarks
+    if world_landmarks is None:
+        print(frame_num, "is none")
+        continue
 
     for kp_num, data_point in enumerate(world_landmarks.landmark):
         keypoints.append({
@@ -113,13 +119,9 @@ while cap.isOpened():
     full_array.append(arr)
 
 npa = np.asarray(full_array, dtype=np.float32)
-print(npa.shape)
 
 mp = MediaPipeSkeleton()
 channels, header = mp.poses2bvh(npa)
-print(channels)
 subarr = channels[1][3:]
 
-endtime = time.time()
 print("run with ", video_file, "frame_num", frame_num)
-print(endtime - stime)
