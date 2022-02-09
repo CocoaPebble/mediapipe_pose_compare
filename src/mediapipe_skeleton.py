@@ -1,5 +1,5 @@
-from . import math3d
-from . import bvh_helper
+import math3d
+import bvh_helper
 
 import numpy as np
 
