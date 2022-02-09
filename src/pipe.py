@@ -3,6 +3,7 @@ import cv2
 import mediapipe as mp
 import numpy as np
 from mediapipe_skeleton import MediaPipeSkeleton
+from bvh import Bvh
 
 landmark_names = [
     'nose',
@@ -69,6 +70,11 @@ mp_dict = {}
 poses = []
 full_array = []
 
+# open standard bvh
+with open('freebvh.bvh') as f:
+    mocap = Bvh(f.read())
+print(mocap.frame_joint_channel(1, 'mixamorig:Spine', 'Xrotation'))
+
 while cap.isOpened():
     success, image = cap.read()
     if not success:
@@ -110,16 +116,26 @@ while cap.isOpened():
     for i, joint_name in enumerate(joint_list):
         loc = frame_group[joint_name]
         arr.append(loc)
-    full_array.append(arr)
 
-npa = np.asarray(full_array, dtype=np.float32)
-print(npa.shape)
+    full_array = [arr]
+    npa = np.asarray(full_array, dtype=np.float32)
+    print(npa.shape)
+    mp = MediaPipeSkeleton()
+    channels, header = mp.poses2bvh(npa)
 
-mp = MediaPipeSkeleton()
-channels, header = mp.poses2bvh(npa)
-print(channels)
-subarr = channels[1][3:]
+    print(channels)
+    # full_array.append(arr)
 
-endtime = time.time()
-print("run with ", video_file, "frame_num", frame_num)
-print(endtime - stime)
+
+
+# npa = np.asarray(full_array, dtype=np.float32)
+# print(npa.shape)
+#
+# mp = MediaPipeSkeleton()
+# channels, header = mp.poses2bvh(npa)
+# print(channels)
+# subarr = channels[1][3:]
+#
+# endtime = time.time()
+# print("run with ", video_file, "frame_num", frame_num)
+# print(endtime - stime)
