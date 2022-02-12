@@ -1,10 +1,10 @@
-from tracemalloc import start
 import cv2
-import numpy as np
-import mediapipe as mp
-from mediapipe_skeleton import MediaPipeSkeleton
-from bvh import Bvh
 import matplotlib.pyplot as plt
+import mediapipe as mp
+import numpy as np
+
+from bvh import Bvh
+from mediapipe_skeleton import MediaPipeSkeleton
 
 landmark_names = [
     'nose',
@@ -44,8 +44,8 @@ def get_center(a, b):
 
 
 def get_spine(a, b):
-    mid_hip = np.array(a)
-    mid_shoulder = np.array(b)
+    mid_shoulder = np.array(a)
+    mid_hip = np.array(b)
     center = (mid_shoulder - mid_hip) * 0.25
     return center
 
@@ -67,7 +67,7 @@ def get_all_standard_pose(file, total_frames):
     return np.array(all_channels, dtype=np.float32)
 
 
-def get_channels_from_frame(file, frame):
+def get_key_pose(file, frame):
     joint_channels = []
     channels = ['Xrotation', 'Yrotation', 'Zrotation']
 
@@ -96,13 +96,43 @@ def draw_line(frames, errors, start, end):
     plt.show()
 
 
+def draw_17_joint_line(frames, errors, start, end, joint):
+    x = range(start, end)
+    color_list = ['blue', 'chocolate', 'crimson', 'darkcyan',
+                  'darkred', 'green', 'red', 'pink',
+                  'purple', 'grey', 'brown', 'olive',
+                  'cyan', 'black', 'mediumturquoise', 'navy', 'orange']
+    for i, ele in enumerate(joint_list):
+        if i == joint:
+            plt.plot(x, errors[i][start:end], color=color_list[i], label=ele)
+    plt.title(frames)
+    plt.legend(loc = "best")
+    plt.xlabel('frames')
+    plt.ylabel('errors')
+    plt.show()
+
+
+def write_predict_bvh(results, out):
+    npa = np.asarray(results, dtype=np.float32)
+    mpsk = MediaPipeSkeleton()
+    channel, header = mpsk.poses2bvh(npa, output_file=out)
+    print('write predicted bvh file,', out)
+    ...
+
+
+def save_mp_result():
+    ...
+
+
 def main():
-    ##################################
+    #######################################################
     video_file = 'ropejump.mp4'
     std_bvh_file = 'amassJumpRope0012json_rot_adjusted.bvh'
-    expected_pose_frame = 150
-    ##################################
+    key_pose_frame = 50
+    output_file = 'ropejump_mp_output.bvh'
+    #######################################################
 
+    # start camera or import video
     cap = cv2.VideoCapture(video_file)
     if not cap.isOpened():
         print("Error opening video stream or file.")
@@ -111,15 +141,15 @@ def main():
     frame_height = int(cap.get(4))
     frame_num = 0
 
-    # MediaPipe
+    # import MediaPipe
     mp_drawing = mp.solutions.drawing_utils
     mp_pose = mp.solutions.pose
     pose = mp_pose.Pose(model_complexity=2,
                         min_detection_confidence=0.5,
                         min_tracking_confidence=0.5)
 
-    # get one standard pose at frame 
-    standard_pose = get_channels_from_frame(std_bvh_file, expected_pose_frame)
+    # get one standard pose at frame
+    std_pose = get_key_pose(std_bvh_file, key_pose_frame)
 
     # get all standard pose
     # all_pose = get_all_standard_pose(std_bvh_file, 191)
@@ -131,14 +161,14 @@ def main():
     # print(std_errors)
     # draw_line(150, std_errors, 130, 170)
 
-
     ##################################
     # print('standard_joint_channels at frame', expected_pose_frame)
     # print(np.cos(standard_joint_channels), standard_joint_channels.shape)
     ##################################
 
-    full_array = []
+    all_array = []
     all_error_sum = []
+    error_list_each_joint = [[] for y in range(len(joint_list))]
 
     while cap.isOpened():
         success, image = cap.read()
@@ -155,6 +185,8 @@ def main():
         if world_landmarks is None:
             # print(frame_num, "not detected")
             all_error_sum.append(0)
+            for i, ele in enumerate(joint_list):
+                error_list_each_joint[i].append(0)
             continue
 
         for kp_num, data_point in enumerate(world_landmarks.landmark):
@@ -166,32 +198,31 @@ def main():
                 'Z': data_point.z,
             })
 
-        frame_group = {}  # points in each frame
+        joint_group = {}  # points in each frame
 
         # select specific points for bvh
         for idx, ele in enumerate(keypoints):
             joint_name = landmark_names[(ele["keypoint_num"])]
             if joint_name in joint_list:
-                frame_group[joint_name] = [ele["X"], ele["Y"], ele["Z"]]
+                joint_group[joint_name] = [ele["X"], ele["Y"], ele["Z"]]
 
-        frame_group['mid_hip'] = get_center(
-            frame_group['left_hip'], frame_group['right_hip']).tolist()
-        frame_group['mid_shoulder'] = get_center(
-            frame_group['left_shoulder'], frame_group['right_shoulder']).tolist()
-        frame_group['spine'] = get_spine(
-            frame_group['mid_shoulder'], frame_group['mid_hip']).tolist()
+        joint_group['mid_hip'] = get_center(
+            joint_group['left_hip'], joint_group['right_hip']).tolist()
+        joint_group['mid_shoulder'] = get_center(
+            joint_group['left_shoulder'], joint_group['right_shoulder']).tolist()
+        joint_group['spine'] = get_spine(
+            joint_group['mid_shoulder'], joint_group['mid_hip']).tolist()
 
         # convert to array
         arr = []
         for i, joint_name in enumerate(joint_list):
-            loc = frame_group[joint_name]
+            loc = joint_group[joint_name]
             arr.append(loc)
 
-        full_array = [arr]
-        npa = np.asarray(full_array, dtype=np.float32)
+        npa = np.asarray([arr], dtype=np.float32)
         mpsk = MediaPipeSkeleton()
         channel, header = mpsk.poses2bvh(npa)
-        channel = np.array(channel[0][3:])
+        channel = np.array(channel[0][3:])  # remove first 3 position, (51,)
         actual_channels = np.reshape(np.ravel(channel), (17, 3))
 
         ##################################
@@ -199,18 +230,28 @@ def main():
         # print(np.cos(actual_channels), actual_channels.shape)
         ##################################
 
-        error_sum = calculate_sse(standard_pose, standard_pose)
+        # error for each joint XYZ
+        for i, ele in enumerate(joint_list):
+            error_sum_one_joint = calculate_sse(
+                std_pose[i], actual_channels[i])
+            error_list_each_joint[i].append(error_sum_one_joint)
+
+        # error for 17 joints
+        error_sum = calculate_sse(std_pose, actual_channels)
         all_error_sum.append(error_sum)
+        print(frame_num, error_sum, np.cos(std_pose[13]), np.cos(actual_channels[13]))
+        all_array.append(arr)
+        # break
 
-        print(frame_num, error_sum)
-        break
-        # full_array.append(arr)
 
-    # npa = np.asarray(full_array, dtype=np.float32)
-    # mp = MediaPipeSkeleton()
-    # output_file = 'output.bvh'
-    # channel, header = mp.poses2bvh(npa, output_file=output_file)
-    draw_line(frame_num, all_error_sum, 90, 110)
+    print('#'*80)
+    print('predict video:', video_file)
+    print('standard bvh:', std_bvh_file)
+    print('#'*80)
+    # draw_line(key_pose_frame, all_error_sum, 1, frame_num)
+    for i in range(17):
+        draw_17_joint_line(key_pose_frame, error_list_each_joint, 40, 60, i)
+    # write_predict_bvh(all_array, output_file)
 
 
 if __name__ == '__main__':
