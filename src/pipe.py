@@ -34,6 +34,18 @@ joint_list = [
     'right_shoulder', 'right_elbow', 'right_wrist'
 ]
 
+bvh_joint_list = [
+    'mid_hip',
+    'left_hip', 'left_knee',
+    'left_ankle', 'left_foot_index',
+    'spine',
+    'mid_shoulder', 'left_shoulder',
+    'left_elbow', 'left_wrist',
+    'right_shoulder', 'right_elbow', 'right_wrist',
+    'right_hip', 'right_knee',
+    'right_ankle', 'right_foot_index',
+]
+
 
 def get_center(a, b):
     """Calculates pose center as point between hips."""
@@ -68,22 +80,36 @@ def get_all_standard_pose(file, total_frames):
 
 
 def get_key_pose(file, frame):
+    # bvh frame start from 0
+
     joint_channels = []
-    channels = ['Xrotation', 'Yrotation', 'Zrotation']
+    channels = ['Zrotation', 'Xrotation', 'Yrotation']
 
     with open(file) as f:
         mocap = Bvh(f.read())
 
-    for joint in joint_list:
+    for joint in bvh_joint_list:
         joint_channels.append(
-            mocap.frame_joint_channels(frame, joint, channels))
+            mocap.frame_joint_channels(frame-1, joint, channels))
 
     return np.array(joint_channels, dtype=np.float32)
 
 
+def test_get_bvh(file):
+    with open(file) as f:
+        mocap = Bvh(f.read())
+
+    print(mocap.frame_joint_channels(1, 'mid_hip',
+          ['Zrotation', 'Xrotation', 'Yrotation']))
+
+
 def calculate_sse(sa, aa):
     # standard angles [], actual angles []
-    err = np.cos(sa.ravel()) - np.cos(aa.ravel())
+    print('standard angle:', sa.ravel())
+    print('actual angle:', aa.ravel())
+    sa_rad = np.radians(sa.ravel())
+    aa_rad = np.radians(aa.ravel())
+    err = np.cos(sa_rad) - np.cos(aa_rad)
     return np.dot(err, err)
 
 
@@ -106,7 +132,7 @@ def draw_17_joint_line(frames, errors, start, end, joint):
         if i == joint:
             plt.plot(x, errors[i][start:end], color=color_list[i], label=ele)
     plt.title(frames)
-    plt.legend(loc = "best")
+    plt.legend(loc="best")
     plt.xlabel('frames')
     plt.ylabel('errors')
     plt.show()
@@ -129,7 +155,7 @@ def main():
     video_file = 'ropejump.mp4'
     std_bvh_file = 'amassJumpRope0012json_rot_adjusted.bvh'
     key_pose_frame = 50
-    output_file = 'ropejump_mp_output.bvh'
+    output_file = 'ropejump_output.bvh'
     #######################################################
 
     # start camera or import video
@@ -147,9 +173,13 @@ def main():
     pose = mp_pose.Pose(model_complexity=2,
                         min_detection_confidence=0.5,
                         min_tracking_confidence=0.5)
+    mpsk = MediaPipeSkeleton()
 
     # get one standard pose at frame
     std_pose = get_key_pose(std_bvh_file, key_pose_frame)
+
+    # get header
+    # header = mpsk.get_bvh_header()
 
     # get all standard pose
     # all_pose = get_all_standard_pose(std_bvh_file, 191)
@@ -178,10 +208,11 @@ def main():
 
         frame_num += 1
         keypoints = []
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         results = pose.process(image)
         world_landmarks = results.pose_world_landmarks
+
         if world_landmarks is None:
             # print(frame_num, "not detected")
             all_error_sum.append(0)
@@ -216,13 +247,12 @@ def main():
         # convert to array
         arr = []
         for i, joint_name in enumerate(joint_list):
-            loc = joint_group[joint_name]
-            arr.append(loc)
+            arr.append(joint_group[joint_name])
 
         npa = np.asarray([arr], dtype=np.float32)
-        mpsk = MediaPipeSkeleton()
+
         channel, header = mpsk.poses2bvh(npa)
-        channel = np.array(channel[0][3:])  # remove first 3 position, (51,)
+        channel = np.array(channel[0][3:])  # remove first 3 position, (1, 51)
         actual_channels = np.reshape(np.ravel(channel), (17, 3))
 
         ##################################
@@ -231,26 +261,26 @@ def main():
         ##################################
 
         # error for each joint XYZ
-        for i, ele in enumerate(joint_list):
-            error_sum_one_joint = calculate_sse(
-                std_pose[i], actual_channels[i])
-            error_list_each_joint[i].append(error_sum_one_joint)
+        # for i, ele in enumerate(joint_list):
+        #     error_sum_one_joint = calculate_sse(std_pose[i], actual_channels[i])
+        #     error_list_each_joint[i].append(error_sum_one_joint)
 
         # error for 17 joints
         error_sum = calculate_sse(std_pose, actual_channels)
         all_error_sum.append(error_sum)
-        print(frame_num, error_sum, np.cos(std_pose[13]), np.cos(actual_channels[13]))
+        print(frame_num, error_sum)
         all_array.append(arr)
-        # break
-
+        break
 
     print('#'*80)
     print('predict video:', video_file)
     print('standard bvh:', std_bvh_file)
     print('#'*80)
-    # draw_line(key_pose_frame, all_error_sum, 1, frame_num)
-    for i in range(17):
-        draw_17_joint_line(key_pose_frame, error_list_each_joint, 40, 60, i)
+
+
+    # draw_line(key_pose_frame, all_error_sum, 40, 60)
+    # draw_17_joint_line(key_pose_frame, error_list_each_joint, 40, 60, i)
+
     # write_predict_bvh(all_array, output_file)
 
 
