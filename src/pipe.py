@@ -62,18 +62,20 @@ def get_spine(a, b):
     return center
 
 
-def get_all_standard_pose(file, total_frames):
+def get_all_standard_pose(file):
+    # bvh frame start from 0
     all_channels = []
-    channels = ['Xrotation', 'Yrotation', 'Zrotation']
+    channels = ['Zrotation', 'Xrotation', 'Yrotation']
 
     with open(file) as f:
         mocap = Bvh(f.read())
+    total_frames = mocap.nframes
 
     for i in range(total_frames):
         joint_channels = []
-        for joint in joint_list:
+        for joint in bvh_joint_list:
             joint_channels.append(
-                mocap.frame_joint_channels(i, joint, channels))
+                mocap.frame_joint_channels(i-1, joint, channels))
         all_channels.append(joint_channels)
 
     return np.array(all_channels, dtype=np.float32)
@@ -95,18 +97,8 @@ def get_key_pose(file, frame):
     return np.array(joint_channels, dtype=np.float32)
 
 
-def test_get_bvh(file):
-    with open(file) as f:
-        mocap = Bvh(f.read())
-
-    print(mocap.frame_joint_channels(1, 'mid_hip',
-          ['Zrotation', 'Xrotation', 'Yrotation']))
-
-
 def calculate_sse(sa, aa):
     # standard angles [], actual angles []
-    print('standard angle:', sa.ravel())
-    print('actual angle:', aa.ravel())
     sa_rad = np.radians(sa.ravel())
     aa_rad = np.radians(aa.ravel())
     err = np.cos(sa_rad) - np.cos(aa_rad)
@@ -143,19 +135,31 @@ def write_predict_bvh(results, out):
     mpsk = MediaPipeSkeleton()
     channel, header = mpsk.poses2bvh(npa, output_file=out)
     print('write predicted bvh file,', out)
-    ...
 
 
 def save_mp_result():
     ...
 
 
+def each_joint_calculate_sse(all_pose, key_pose_frame):
+    period = 10
+    rows = []
+    for frame in range(key_pose_frame - period, key_pose_frame + period + 1):
+        cur_row = [frame]
+        for i, joint in enumerate(bvh_joint_list):
+            # print('frame', i, joint, all_pose[frame][i])
+            # print('key_pose', joint, all_pose[key_pose_frame][i])
+            # print(i, joint, calculate_sse(all_pose[frame][i], all_pose[key_pose_frame][i]))
+            cur_row.append(round(calculate_sse(all_pose[frame][i], all_pose[key_pose_frame][i]), 3))
+        rows.append(cur_row)
+    print(rows)
+
 def main():
     #######################################################
     video_file = 'ropejump.mp4'
-    std_bvh_file = 'amassJumpRope0012json_rot_adjusted.bvh'
-    key_pose_frame = 50
-    output_file = 'ropejump_output.bvh'
+    std_bvh_file = 'ropejump.bvh'
+    key_pose_frame = 80
+    output_file = 'ropejump_mp_ouput2.bvh'
     #######################################################
 
     # start camera or import video
@@ -178,27 +182,14 @@ def main():
     # get one standard pose at frame
     std_pose = get_key_pose(std_bvh_file, key_pose_frame)
 
-    # get header
-    # header = mpsk.get_bvh_header()
+    # get standard t-pose skeleton
 
     # get all standard pose
-    # all_pose = get_all_standard_pose(std_bvh_file, 191)
-    # std_errors = []
-    # for i, x in enumerate(all_pose):
-    #     error = calculate_sse(standard_pose, x)
-    #     std_errors.append(error)
-
-    # print(std_errors)
-    # draw_line(150, std_errors, 130, 170)
-
-    ##################################
-    # print('standard_joint_channels at frame', expected_pose_frame)
-    # print(np.cos(standard_joint_channels), standard_joint_channels.shape)
-    ##################################
+    all_pose = get_all_standard_pose(std_bvh_file)
+    # each_joint_calculate_sse(all_pose, key_pose_frame)
 
     all_array = []
     all_error_sum = []
-    error_list_each_joint = [[] for y in range(len(joint_list))]
 
     while cap.isOpened():
         success, image = cap.read()
@@ -215,9 +206,7 @@ def main():
 
         if world_landmarks is None:
             # print(frame_num, "not detected")
-            all_error_sum.append(0)
-            for i, ele in enumerate(joint_list):
-                error_list_each_joint[i].append(0)
+            all_error_sum.append(0)  # add no error if not predicted
             continue
 
         for kp_num, data_point in enumerate(world_landmarks.landmark):
@@ -255,33 +244,26 @@ def main():
         channel = np.array(channel[0][3:])  # remove first 3 position, (1, 51)
         actual_channels = np.reshape(np.ravel(channel), (17, 3))
 
-        ##################################
-        # print('actual_channels at frame', frame_num)
-        # print(np.cos(actual_channels), actual_channels.shape)
-        ##################################
-
-        # error for each joint XYZ
-        # for i, ele in enumerate(joint_list):
-        #     error_sum_one_joint = calculate_sse(std_pose[i], actual_channels[i])
-        #     error_list_each_joint[i].append(error_sum_one_joint)
-
-        # error for 17 joints
+        # error for each joints
+        # for i, joint in enumerate(bvh_joint_list):
+        #     errsum = calculate_sse(std_pose[i], actual_channels[i])
+        #     print(frame_num, joint, errsum)
+        
+        # error for all joints
         error_sum = calculate_sse(std_pose, actual_channels)
         all_error_sum.append(error_sum)
         print(frame_num, error_sum)
         all_array.append(arr)
-        break
+        # break
 
     print('#'*80)
     print('predict video:', video_file)
     print('standard bvh:', std_bvh_file)
     print('#'*80)
 
+    draw_line(key_pose_frame, all_error_sum, 1, frame_num)
 
-    # draw_line(key_pose_frame, all_error_sum, 40, 60)
-    # draw_17_joint_line(key_pose_frame, error_list_each_joint, 40, 60, i)
-
-    # write_predict_bvh(all_array, output_file)
+    write_predict_bvh(all_array, output_file)
 
 
 if __name__ == '__main__':
