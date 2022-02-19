@@ -1,3 +1,5 @@
+import json
+import math
 import cv2
 import matplotlib.pyplot as plt
 import mediapipe as mp
@@ -141,19 +143,19 @@ def save_mp_result():
     ...
 
 
-def each_joint_calculate_sse(all_pose, key_pose_frame):
-    period = 10
+def each_joint_calculate_sse(all_std_pose, all_pred_pose, key_pose_frame, frame_num):
+    period = 20
     rows = []
-    for frame in range(key_pose_frame - period, key_pose_frame + period + 1):
+    for frame in range(1, frame_num):
         cur_row = [frame]
         for i, joint in enumerate(bvh_joint_list):
             # print('frame', i, joint, all_pose[frame][i])
             # print('key_pose', joint, all_pose[key_pose_frame][i])
             # print(i, joint, calculate_sse(all_pose[frame][i], all_pose[key_pose_frame][i]))
             cur_row.append(
-                round(calculate_sse(all_pose[frame][i], all_pose[key_pose_frame][i]), 3))
+                round(calculate_sse(all_pred_pose[frame][i], all_std_pose[frame][i]), 3))
         rows.append(cur_row)
-    # print(rows)
+    print(rows)
 
 
 def get_header(std_npy_file):
@@ -161,17 +163,13 @@ def get_header(std_npy_file):
     mpsk = MediaPipeSkeleton()
     return mpsk.get_bvh_header(data)
 
+
 def main():
-    #######################################################
-    video_file = r'data\ropejump.mp4'
-    std_bvh_file = r'data\ropejump.bvh'
-    header_file = r'data\amassJumpRope0012json_rot_adjusted.npy'
-    key_pose_frame = 45
-    output_file = r'data\ropejump_mp_ouput3.bvh'
-    #######################################################
+    with open("src\config.json","r") as f:
+        config = json.load(f)
 
     # start camera or import video
-    cap = cv2.VideoCapture(video_file)
+    cap = cv2.VideoCapture(config['video_file'])
     if not cap.isOpened():
         print("Error opening video stream or file.")
         raise TypeError
@@ -188,21 +186,23 @@ def main():
     mpsk = MediaPipeSkeleton()
 
     # get one standard pose at frame
-    std_pose = get_key_pose(std_bvh_file, key_pose_frame)
+    std_pose = get_key_pose(config['std_bvh_file'], config['key_pose_frame'])
 
     # get standard t-pose skeleton
-    std_header = get_header(header_file)
-    print(std_header)
+    std_header = None
+    if config['header_file']:
+        std_header = get_header(config['header_file'])
 
     # get all standard pose
-    all_pose = get_all_standard_pose(std_bvh_file)
+    all_pose = get_all_standard_pose(config['std_bvh_file'])
 
     # calculate gt each joint error
-    each_joint_calculate_sse(all_pose, key_pose_frame)
+    # each_joint_calculate_sse(all_pose, key_pose_frame)
 
     # initialize prediction array
     all_array = []
     all_error_sum = []
+    test = []
 
     while cap.isOpened():
         success, image = cap.read()
@@ -252,25 +252,42 @@ def main():
             arr.append(joint_group[joint_name])
 
         # process predict results
-        npa = np.asarray([arr], dtype=np.float32)
+        npa = np.array([arr], dtype=np.float32)
         channel, header = mpsk.poses2bvh(npa, header=std_header)
         channel = np.array(channel[0][3:])  # remove first 3 position, (1, 51)
-        print(channel)
         actual_channels = np.reshape(np.ravel(channel), (17, 3))
 
         # error for body
-        error_sum = calculate_sse(std_pose, actual_channels)
-        all_error_sum.append(error_sum)
-        print(frame_num, error_sum)
-        all_array.append(arr)
+        print(std_pose[5])
+        print(actual_channels[5])
+        print(np.cos(np.radians(std_pose[5])))
+        print(np.cos(np.radians(actual_channels[5])))
+
+        # test_cur = [frame_num]
+        # for i, joint in enumerate(bvh_joint_list):
+        #     e = calculate_sse(std_pose[i], actual_channels[i])
+        #     test_cur.append(e)
+        #     print(i, joint, e)
+        # test.append(test_cur)
+
+        # error_sum = calculate_sse(std_pose, actual_channels)
+        # all_error_sum.append(error_sum)
+        # print(frame_num, error_sum)
+        # all_array.append(arr)
         break
 
+
+    pose.close()
+
     print('#'*80)
-    print('predict video:', video_file)
-    print('standard bvh:', std_bvh_file)
+    print('predict video:', config['video_file'])
+    print('standard bvh:', config['std_bvh_file'])
     print('#'*80)
 
-    draw_line(key_pose_frame, all_error_sum, 1, frame_num)
+    # print(test)
+    # draw_line(config['key_pose_frame'], all_error_sum, 1, frame_num)
+    # np_all_array = np.array(all_array)
+    # each_joint_calculate_sse(all_pose, np_all_array, config['key_pose_frame'], frame_num)
     # write_predict_bvh(all_array, output_file)
 
 

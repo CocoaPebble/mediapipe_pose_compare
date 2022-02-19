@@ -158,10 +158,10 @@ class MediaPipeSkeleton(object):
 
     def get_bvh_header(self, poses_3d):
         initial_offset = self.get_initial_offset(poses_3d)
-        print(initial_offset)
+        # print(initial_offset)
         nodes = {}
         for joint in self.keypoint2index:
-            print(joint)
+            # print(joint)
             is_root = joint == self.root
             is_end_site = 'EndSite' in joint
             nodes[joint] = bvh_helper.BvhNode(
