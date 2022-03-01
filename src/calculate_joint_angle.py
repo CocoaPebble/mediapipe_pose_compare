@@ -1,9 +1,10 @@
+import json
 import math
+
 import cv2
-from matplotlib import pyplot as plt
 import mediapipe as mp
 import numpy as np
-import json
+from matplotlib import pyplot as plt
 
 selected_jts = [
     'left_shoulder', 'right_shoulder',
@@ -16,7 +17,6 @@ selected_jts = [
 
 
 def angle_2p_3d(a, b, c):
-
     v1 = np.array([a[0] - b[0], a[1] - b[1], a[2] - b[2]])
     v2 = np.array([c[0] - b[0], c[1] - b[1], c[2] - b[2]])
 
@@ -55,8 +55,8 @@ def get_mediapipe_joint_angles(kpts):
                                   kpts[selected_jts.index('right_hip')],
                                   kpts[selected_jts.index('right_knee')])
     right_knee_angle = angle_2p_3d(kpts[selected_jts.index('right_hip')],
-                                  kpts[selected_jts.index('right_knee')],
-                                  kpts[selected_jts.index('right_ankle')])
+                                   kpts[selected_jts.index('right_knee')],
+                                   kpts[selected_jts.index('right_ankle')])
 
     return [left_shoulder_angle, left_elbow_angle, left_hip_angle, left_knee_angle,
             right_shoulder_angle, right_elbow_angle, right_hip_angle, right_knee_angle]
@@ -75,11 +75,13 @@ def read_gt_pts(gt_file):
     all_arr = np.array(all_arr)
     return all_arr
 
+
 def angle_error(gt, mp):
     err = np.abs(np.array(gt) - np.array(mp))
     # print(err)
     print(round(np.sum(err), 2))
     return round(np.sum(err), 2)
+
 
 def draw_line(errors):
     x = range(0, 100)
@@ -99,8 +101,8 @@ pose = mp_pose.Pose(model_complexity=2,
 pose_keypoints = [16, 14, 12, 11, 13, 15, 24, 23, 25, 26, 27, 28]
 
 video_file = r'data\yoga4.mp4'
-gt_file = r'data\frontyoga100.json'
-gt_pts = read_gt_pts(gt_file)
+# gt_file = r'..\data\frontyoga100.json'
+# gt_pts = read_gt_pts(gt_file)
 
 # print(gt_pts_0)
 cap = cv2.VideoCapture(video_file)
@@ -112,7 +114,7 @@ while cap.isOpened():
     success, image = cap.read()
     if not success:
         break
-    
+
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     results = pose.process(image)
 
@@ -125,19 +127,18 @@ while cap.isOpened():
             frame_kps.append(kpts)
     else:
         frame_kps = [-1, -1, -1] * len(pose_keypoints)
-    
+
     angles = get_mediapipe_joint_angles(frame_kps)
-    # print(angles)
-    gt_pts_angle = get_mediapipe_joint_angles(gt_pts[9])
+    print(frame_num, angles)
+    gt_pts_angle = get_mediapipe_joint_angles(gt_pts[frame_num])
+    print(gt_pts_angle)
     err = angle_error(gt_pts_angle, angles)
     all_errors.append(err)
     kpts_3d.append(frame_kps)
-
 
     frame_num += 1
     # if frame_num == 10:
     #     break
 
-
-kpts_3d = np.array(kpts_3d)
-draw_line(all_errors)
+# kpts_3d = np.array(kpts_3d)
+# draw_line(all_errors)

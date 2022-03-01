@@ -52,10 +52,10 @@ def run_mp():
         kpts_3d.append(frame_keypoints)
     return kpts_3d
 
+
 kpts_3d = run_mp()
 kpts_3d = np.array(kpts_3d)
 write_keypoints_to_disk('3d_points_output/kpts_3d.dat', kpts_3d)
-
 
 # test_nparr = np.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]])
 # write_keypoints_to_disk('3d_points_output/test.dat', test_nparr)
