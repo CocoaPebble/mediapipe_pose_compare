@@ -5,6 +5,8 @@ import mediapipe as mp
 import numpy as np
 import json
 
+from write_mediapipe_3d_points import write_anlges_to_disk
+
 selected_jts = [
     'left_shoulder', 'right_shoulder',
     'left_elbow', 'right_elbow',
@@ -66,6 +68,7 @@ def read_gt_pts(gt_file):
     with open(gt_file, 'r') as f:
         data = json.load(f)
 
+    print('reading file gt file,', gt_file)
     all_arr = []
     for frame in data:
         arr = []
@@ -80,6 +83,11 @@ def angle_error(gt, mp):
     # print(err)
     print(round(np.sum(err), 2))
     return round(np.sum(err), 2)
+
+def get_each_angle_error(gt, mp):
+    err = np.abs(np.array(gt) - np.array(mp))
+    return err
+
 
 def draw_line(errors):
     x = range(0, 100)
@@ -98,8 +106,11 @@ pose = mp_pose.Pose(model_complexity=2,
 
 pose_keypoints = [16, 14, 12, 11, 13, 15, 24, 23, 25, 26, 27, 28]
 
-video_file = r'data\yoga4.mp4'
-gt_file = r'data\frontyoga100.json'
+video_file = r'data\video\yoga_60_record.mp4'
+file_extension = 'mp4'
+output_file = video_file[:-(len(file_extension) + 1)] + '_output.' + file_extension
+print(output_file)
+gt_file = r'data\json\frontyoga100_2.json'
 gt_pts = read_gt_pts(gt_file)
 
 # print(gt_pts_0)
@@ -107,6 +118,8 @@ cap = cv2.VideoCapture(video_file)
 kpts_3d = []
 frame_num = 0
 all_errors = []
+all_angles = []
+single_joint_all_error = []
 
 while cap.isOpened():
     success, image = cap.read()
@@ -117,6 +130,7 @@ while cap.isOpened():
     results = pose.process(image)
 
     frame_kps = []
+    single_jt_err = [frame_num]
     if results.pose_world_landmarks:
         for i, landmark in enumerate(results.pose_world_landmarks.landmark):
             if i not in pose_keypoints:
@@ -127,17 +141,32 @@ while cap.isOpened():
         frame_kps = [-1, -1, -1] * len(pose_keypoints)
     
     angles = get_mediapipe_joint_angles(frame_kps)
-    # print(angles)
-    gt_pts_angle = get_mediapipe_joint_angles(gt_pts[9])
-    err = angle_error(gt_pts_angle, angles)
-    all_errors.append(err)
-    kpts_3d.append(frame_kps)
+    all_angles.append(angles)
+    print(frame_num, angles)
+    # gt_pts_angle = get_mediapipe_joint_angles(gt_pts[frame_num])
+    # print(frame_num, gt_pts_angle)
+    # err = angle_error(gt_pts_angle, angles)
+    # err_arr = get_each_angle_error(gt_pts_angle, angles)
+
+    # single_jt_err.append(err)
+    # for e in err_arr:
+    #     single_jt_err.append(round(e, 2))
+    # single_joint_all_error.append(single_jt_err)
+
+    # all_errors.append(err)
+    # kpts_3d.append(frame_kps)
 
 
     frame_num += 1
-    # if frame_num == 10:
-    #     break
+    if cv2.waitKey(5) & 0xFF == 27:
+        break
 
+cap.release()
 
-kpts_3d = np.array(kpts_3d)
-draw_line(all_errors)
+# print(single_joint_all_error)
+
+# kpts_3d = np.array(kpts_3d)
+# print(frame_num)
+# draw_line(all_errors)
+
+# write_anlges_to_disk('angle_output/yoga_60_record_angle_output.dat', all_angles)

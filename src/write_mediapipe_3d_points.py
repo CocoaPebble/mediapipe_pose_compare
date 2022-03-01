@@ -18,6 +18,15 @@ def write_keypoints_to_disk(filename, kpts):
         fout.write('\n')
     fout.close()
 
+def write_anlges_to_disk(filename, angles):
+    with open(filename, 'w') as f:
+        for frame_angle in angles:
+            for ang in frame_angle:
+                f.write(str(ang) + ' ')
+            f.write('\n')
+
+def write_mp_on_video(input_vid, output_vid):
+    ...
 
 def run_mp():
     mp_drawing = mp.solutions.drawing_utils
