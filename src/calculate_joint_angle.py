@@ -1,10 +1,10 @@
+import json
 import math
 import os
 import cv2
-from matplotlib import pyplot as plt
 import mediapipe as mp
 import numpy as np
-import json
+from matplotlib import pyplot as plt
 
 from write_mediapipe_3d_points import write_anlges_to_disk
 
@@ -19,7 +19,6 @@ selected_jts = [
 
 
 def angle_2p_3d(a, b, c):
-
     v1 = np.array([a[0] - b[0], a[1] - b[1], a[2] - b[2]])
     v2 = np.array([c[0] - b[0], c[1] - b[1], c[2] - b[2]])
 

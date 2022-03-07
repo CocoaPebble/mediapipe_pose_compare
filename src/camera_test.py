@@ -1,7 +1,8 @@
 import sys
+
 import cv2
-import numpy as np
 import mediapipe as mp
+import numpy as np
 
 from calculate_joint_angle import get_mediapipe_joint_angles
 
@@ -42,6 +43,7 @@ img = cv2.imread(key_pose_image)
 if img is None:
     sys.exit("no image file")
 img = ResizeWithAspectRatio(img, width=frame_width, height=frame_height)
+img = cv2.flip(img, 1)
 
 mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
@@ -54,6 +56,7 @@ pose = mp_pose.Pose(model_complexity=2,
 # gt_angle_90 = [110.06, 172.89, 108.2, 161.27, 94.07, 159.08, 94.36, 163.82]
 gt_angle_90 = [109.0, 171.31, 105.29, 163.41, 95.44, 161.23, 91.65, 167.87]
 all_error = []
+frame_num = 0
 
 while True:
     ret, image = cap.read()
@@ -67,6 +70,7 @@ while True:
     frame_kps = []
     err = 0
     err_arr = []
+    pred_angles = []
     if results.pose_world_landmarks:
         for i, landmark in enumerate(results.pose_world_landmarks.landmark):
             if i not in pose_keypoints:
@@ -75,6 +79,7 @@ while True:
             frame_kps.append(kpts)
 
         pred_angles = get_mediapipe_joint_angles(frame_kps)
+        print(frame_num, pred_angles)
         err_arr = np.abs(np.array(gt_angle_90) - np.array(pred_angles))
         err = np.round(np.sum(err_arr), 3)
         print(err, str(err), err_arr)
@@ -91,8 +96,9 @@ while True:
         mp_pose.POSE_CONNECTIONS,
         landmark_drawing_spec=mp_drawing_styles.get_default_pose_landmarks_style())
 
-    image = cv2.flip(image, 1)
+    frame_num += 1
 
+    image = cv2.flip(image, 1)
     font = cv2.FONT_HERSHEY_SIMPLEX
     font_scale = 1
     font_color = (0, 0, 255)
@@ -102,7 +108,8 @@ while True:
     cv2.putText(image, str(err), (20, 100), font, font_scale, font_color, thickness=thickness, lineType=linetype)
     ypos = 140
     for i, ele in enumerate(err_arr):
-        text = angle_order[i] + ' ' + str(round(ele, 2))
+        # text = angle_order[i] + ' ' + str(round(ele, 2))
+        text = angle_order[i] + ' ' + str(round(pred_angles[i]))
         cv2.putText(image, text, (20, ypos + i * 40), font, font_scale, font_color, thickness=thickness,
                     lineType=linetype)
     numpy_horizontal = np.hstack((img, image))
