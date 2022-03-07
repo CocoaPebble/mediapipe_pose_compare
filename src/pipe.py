@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 import mediapipe as mp
 import numpy as np
 
-from bvh import Bvh
-from mediapipe_skeleton import MediaPipeSkeleton
+from util.bvh import Bvh
+from util.mediapipe_skeleton import MediaPipeSkeleton
 
 landmark_names = [
     'nose',

@@ -109,7 +109,8 @@ pose = mp_pose.Pose(model_complexity=2,
 pose_keypoints = [16, 14, 12, 11, 13, 15, 24, 23, 25, 26, 27, 28]
 
 video_file = r'data/video/test_action.mp4'
-output_file = os.path.join('angle_output', video_file.split('/')[2][:-4]) + '.dat'
+output_file = os.path.join(
+    'angle_output', video_file.split('/')[2][:-4]) + '.dat'
 print(output_file)
 # gt_file = r'data\json\frontyoga100_2.json'
 # gt_pts = read_gt_pts(gt_file)

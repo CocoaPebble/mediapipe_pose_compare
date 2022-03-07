@@ -4,7 +4,7 @@ import cv2
 import mediapipe as mp
 import numpy as np
 
-from calculate_joint_angle import get_mediapipe_joint_angles
+from write_joint_angle import get_mediapipe_joint_angles
 
 # gt_file = r'data\frontyoga100.json'
 key_pose_image = 'data\img\keypose.png'
@@ -105,7 +105,8 @@ while True:
     thickness = 3
     linetype = 3
 
-    cv2.putText(image, str(err), (20, 100), font, font_scale, font_color, thickness=thickness, lineType=linetype)
+    cv2.putText(image, str(err), (20, 100), font, font_scale,
+                font_color, thickness=thickness, lineType=linetype)
     ypos = 140
     for i, ele in enumerate(err_arr):
         # text = angle_order[i] + ' ' + str(round(ele, 2))

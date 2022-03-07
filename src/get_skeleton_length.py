@@ -36,8 +36,6 @@ with mp_pose.Pose(
             f'{results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_WRIST].z})'
         )
 
-
-
         annotated_image = image.copy()
         # Draw segmentation on the image.
         # To improve segmentation around boundaries, consider applying a joint
