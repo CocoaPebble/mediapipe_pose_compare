@@ -1,0 +1,8 @@
+{
+    "video_file": "data/video/yoga4.mp4",
+    "std_bvh_file" : "data/bvh/yoga_4_2.bvh",
+    "header_file" : "",
+    "key_pose_frame" : 50,
+    "output_file" : "data/yoga_4_mp_ouput2.bvh"
+}
+

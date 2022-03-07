@@ -3,10 +3,10 @@ import cv2
 import numpy as np
 import mediapipe as mp
 
-from src.calculate_joint_angle import read_gt_pts, get_mediapipe_joint_angles, angle_error
+from calculate_joint_angle import get_mediapipe_joint_angles
 
-gt_file = r'data\frontyoga100.json'
-key_pose_image = '../data/yoga4.jpg'
+# gt_file = r'data\frontyoga100.json'
+key_pose_image = 'data\img\keypose.png'
 pose_keypoints = [16, 14, 12, 11, 13, 15, 24, 23, 25, 26, 27, 28]
 angle_order = ['left_shoulder_angle', 'left_elbow_angle',
                'left_hip_angle', 'left_knee_angle',
@@ -30,7 +30,8 @@ def ResizeWithAspectRatio(image, width=None, height=None, inter=cv2.INTER_AREA):
     return cv2.resize(image, dim, interpolation=inter)
 
 
-cap = cv2.VideoCapture(0)
+# cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(r'C:\Users\jyz18\Documents\realsense\rgbd_test.mp4')
 if not cap.isOpened():
     print("Error opening video stream or file.")
     raise TypeError
@@ -50,7 +51,8 @@ pose = mp_pose.Pose(model_complexity=2,
                     min_tracking_confidence=0.5)
 
 # gt_pose = read_gt_pts(gt_file)
-gt_angle_90 = [110.06, 172.89, 108.2, 161.27, 94.07, 159.08, 94.36, 163.82]
+# gt_angle_90 = [110.06, 172.89, 108.2, 161.27, 94.07, 159.08, 94.36, 163.82]
+gt_angle_90 = [109.0, 171.31, 105.29, 163.41, 95.44, 161.23, 91.65, 167.87]
 all_error = []
 
 while True:

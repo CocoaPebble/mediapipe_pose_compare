@@ -165,7 +165,7 @@ def get_header(std_npy_file):
 
 
 def main():
-    with open("src\config.json","r") as f:
+    with open("src\config.json", "r") as f:
         config = json.load(f)
 
     # start camera or import video
@@ -257,12 +257,6 @@ def main():
         channel = np.array(channel[0][3:])  # remove first 3 position, (1, 51)
         actual_channels = np.reshape(np.ravel(channel), (17, 3))
 
-        # error for body
-        print(std_pose[5])
-        print(actual_channels[5])
-        print(np.cos(np.radians(std_pose[5])))
-        print(np.cos(np.radians(actual_channels[5])))
-
         # test_cur = [frame_num]
         # for i, joint in enumerate(bvh_joint_list):
         #     e = calculate_sse(std_pose[i], actual_channels[i])
@@ -270,12 +264,10 @@ def main():
         #     print(i, joint, e)
         # test.append(test_cur)
 
-        # error_sum = calculate_sse(std_pose, actual_channels)
-        # all_error_sum.append(error_sum)
-        # print(frame_num, error_sum)
-        # all_array.append(arr)
-        break
-
+        error_sum = calculate_sse(std_pose, actual_channels)
+        all_error_sum.append(error_sum)
+        print(frame_num, error_sum)
+        all_array.append(arr)
 
     pose.close()
 

@@ -1,4 +1,5 @@
 import math
+import os
 import cv2
 from matplotlib import pyplot as plt
 import mediapipe as mp
@@ -35,7 +36,8 @@ def angle_2p_3d(a, b, c):
 
 def get_mediapipe_joint_angles(kpts):
     left_shoulder_angle = angle_2p_3d(kpts[selected_jts.index('left_elbow')],
-                                      kpts[selected_jts.index('left_shoulder')],
+                                      kpts[selected_jts.index(
+                                          'left_shoulder')],
                                       kpts[selected_jts.index('left_hip')])
     left_elbow_angle = angle_2p_3d(kpts[selected_jts.index('left_wrist')],
                                    kpts[selected_jts.index('left_elbow')],
@@ -48,7 +50,8 @@ def get_mediapipe_joint_angles(kpts):
                                   kpts[selected_jts.index('left_ankle')])
 
     right_shoulder_angle = angle_2p_3d(kpts[selected_jts.index('right_elbow')],
-                                       kpts[selected_jts.index('right_shoulder')],
+                                       kpts[selected_jts.index(
+                                           'right_shoulder')],
                                        kpts[selected_jts.index('right_hip')])
     right_elbow_angle = angle_2p_3d(kpts[selected_jts.index('right_wrist')],
                                     kpts[selected_jts.index('right_elbow')],
@@ -57,8 +60,8 @@ def get_mediapipe_joint_angles(kpts):
                                   kpts[selected_jts.index('right_hip')],
                                   kpts[selected_jts.index('right_knee')])
     right_knee_angle = angle_2p_3d(kpts[selected_jts.index('right_hip')],
-                                  kpts[selected_jts.index('right_knee')],
-                                  kpts[selected_jts.index('right_ankle')])
+                                   kpts[selected_jts.index('right_knee')],
+                                   kpts[selected_jts.index('right_ankle')])
 
     return [left_shoulder_angle, left_elbow_angle, left_hip_angle, left_knee_angle,
             right_shoulder_angle, right_elbow_angle, right_hip_angle, right_knee_angle]
@@ -78,11 +81,11 @@ def read_gt_pts(gt_file):
     all_arr = np.array(all_arr)
     return all_arr
 
-def angle_error(gt, mp):
+
+def get_angle_error(gt, mp):
     err = np.abs(np.array(gt) - np.array(mp))
-    # print(err)
-    print(round(np.sum(err), 2))
     return round(np.sum(err), 2)
+
 
 def get_each_angle_error(gt, mp):
     err = np.abs(np.array(gt) - np.array(mp))
@@ -106,14 +109,12 @@ pose = mp_pose.Pose(model_complexity=2,
 
 pose_keypoints = [16, 14, 12, 11, 13, 15, 24, 23, 25, 26, 27, 28]
 
-video_file = r'data\video\yoga_60_record.mp4'
-file_extension = 'mp4'
-output_file = video_file[:-(len(file_extension) + 1)] + '_output.' + file_extension
+video_file = r'data/video/test_action.mp4'
+output_file = os.path.join('angle_output', video_file.split('/')[2][:-4]) + '.dat'
 print(output_file)
-gt_file = r'data\json\frontyoga100_2.json'
-gt_pts = read_gt_pts(gt_file)
+# gt_file = r'data\json\frontyoga100_2.json'
+# gt_pts = read_gt_pts(gt_file)
 
-# print(gt_pts_0)
 cap = cv2.VideoCapture(video_file)
 kpts_3d = []
 frame_num = 0
@@ -125,7 +126,7 @@ while cap.isOpened():
     success, image = cap.read()
     if not success:
         break
-    
+
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     results = pose.process(image)
 
@@ -139,7 +140,7 @@ while cap.isOpened():
             frame_kps.append(kpts)
     else:
         frame_kps = [-1, -1, -1] * len(pose_keypoints)
-    
+
     angles = get_mediapipe_joint_angles(frame_kps)
     all_angles.append(angles)
     print(frame_num, angles)
@@ -156,17 +157,10 @@ while cap.isOpened():
     # all_errors.append(err)
     # kpts_3d.append(frame_kps)
 
-
     frame_num += 1
     if cv2.waitKey(5) & 0xFF == 27:
         break
 
 cap.release()
 
-# print(single_joint_all_error)
-
-# kpts_3d = np.array(kpts_3d)
-# print(frame_num)
-# draw_line(all_errors)
-
-# write_anlges_to_disk('angle_output/yoga_60_record_angle_output.dat', all_angles)
+write_anlges_to_disk(output_file, all_angles)

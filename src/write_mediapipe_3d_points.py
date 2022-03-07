@@ -4,7 +4,6 @@ import numpy as np
 
 
 def write_keypoints_to_disk(filename, kpts):
-    print(kpts.shape)
     fout = open(filename, 'w')
 
     for frame_kpts in kpts:

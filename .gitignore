@@ -7,6 +7,10 @@ __pycache__/
 *.so
 
 # Distribution / packaging
+data/
+dv/
+3d_points_output/
+angle_output/
 .Python
 build/
 develop-eggs/
@@ -127,3 +131,4 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
