@@ -1,11 +1,16 @@
+import csv
+import io
+import os
+import time
+
+import cv2
+import numpy as np
+import requests
+import tqdm
 from matplotlib import pyplot as plt
-
-
-def show_image(img, figsize=(10, 10)):
-    """Shows output PIL image."""
-    plt.figure(figsize=figsize)
-    plt.imshow(img)
-    plt.show()
+from mediapipe.python.solutions import drawing_utils as mp_drawing
+from mediapipe.python.solutions import pose as mp_pose
+from PIL import Image, ImageDraw, ImageFont
 
 
 class FullBodyPoseEmbedder(object):
@@ -209,3 +214,588 @@ class FullBodyPoseEmbedder(object):
 
     def _get_distance(self, lmk_from, lmk_to):
         return lmk_to - lmk_from
+
+
+class PoseSample(object):
+
+    def __init__(self, name, landmarks, class_name, embedding):
+        self.name = name
+        self.landmarks = landmarks
+        self.class_name = class_name
+
+        self.embedding = embedding
+
+
+class PoseSampleOutlier(object):
+
+    def __init__(self, sample, detected_class, all_classes):
+        self.sample = sample
+        self.detected_class = detected_class
+        self.all_classes = all_classes
+
+
+class PoseClassifier(object):
+    """Classifies pose landmarks."""
+
+    def __init__(self,
+                 pose_samples_folder,
+                 pose_embedder,
+                 file_extension='csv',
+                 file_separator=',',
+                 n_landmarks=33,
+                 n_dimensions=3,
+                 top_n_by_max_distance=30,
+                 top_n_by_mean_distance=10,
+                 axes_weights=(1., 1., 0.2)):
+        self._pose_embedder = pose_embedder
+        self._n_landmarks = n_landmarks
+        self._n_dimensions = n_dimensions
+        self._top_n_by_max_distance = top_n_by_max_distance
+        self._top_n_by_mean_distance = top_n_by_mean_distance
+        self._axes_weights = axes_weights
+
+        self._pose_samples = self._load_pose_samples(pose_samples_folder,
+                                                     file_extension,
+                                                     file_separator,
+                                                     n_landmarks,
+                                                     n_dimensions,
+                                                     pose_embedder)
+
+    def _load_pose_samples(self,
+                           pose_samples_folder,
+                           file_extension,
+                           file_separator,
+                           n_landmarks,
+                           n_dimensions,
+                           pose_embedder):
+        """Loads pose samples from a given folder.
+
+        Required folder structure:
+          neutral_standing.csv
+          pushups_down.csv
+          pushups_up.csv
+          squats_down.csv
+          ...
+
+        Required CSV structure:
+          sample_00001,x1,y1,z1,x2,y2,z2,....
+          sample_00002,x1,y1,z1,x2,y2,z2,....
+          ...
+        """
+        # Each file in the folder represents one pose class.
+        file_names = [name for name in os.listdir(
+            pose_samples_folder) if name.endswith(file_extension)]
+
+        pose_samples = []
+        for file_name in file_names:
+            # Use file name as pose class name.
+            class_name = file_name[:-(len(file_extension) + 1)]
+
+            # Parse CSV.
+            with open(os.path.join(pose_samples_folder, file_name)) as csv_file:
+                csv_reader = csv.reader(csv_file, delimiter=file_separator)
+                # Filter out empty rows
+                csv_reader = (row for row in csv_reader if row)
+                for row in csv_reader:
+                    assert len(row) == n_landmarks * n_dimensions + \
+                        1, 'Wrong number of values: {}'.format(len(row))
+                    landmarks = np.array(row[1:], np.float32).reshape(
+                        [n_landmarks, n_dimensions])
+                    pose_samples.append(PoseSample(
+                        name=row[0],
+                        landmarks=landmarks,
+                        class_name=class_name,
+                        embedding=pose_embedder(landmarks),
+                    ))
+
+        return pose_samples
+
+    def find_pose_sample_outliers(self):
+        """Classifies each sample against the entire database."""
+        # Find outliers in target poses
+        outliers = []
+        for sample in self._pose_samples:
+            # Find nearest poses for the target one.
+            pose_landmarks = sample.landmarks.copy()
+            pose_classification = self.__call__(pose_landmarks)
+            class_names = [class_name for class_name, count in pose_classification.items(
+            ) if count == max(pose_classification.values())]
+
+            # Sample is an outlier if nearest poses have different class or more than
+            # one pose class is detected as nearest.
+            if sample.class_name not in class_names or len(class_names) != 1:
+                outliers.append(PoseSampleOutlier(
+                    sample, class_names, pose_classification))
+
+        return outliers
+
+    def __call__(self, pose_landmarks):
+        """Classifies given pose.
+
+        Classification is done in two stages:
+          * First we pick top-N samples by MAX distance. It allows to remove samples
+            that are almost the same as given pose, but has few joints bent in the
+            other direction.
+          * Then we pick top-N samples by MEAN distance. After outliers are removed
+            on a previous step, we can pick samples that are closes on average.
+
+        Args:
+          pose_landmarks: NumPy array with 3D landmarks of shape (N, 3).
+
+        Returns:
+          Dictionary with count of nearest pose samples from the database. Sample:
+            {
+              'pushups_down': 8,
+              'pushups_up': 2,
+            }
+        """
+        # Check that provided and target poses have the same shape.
+        assert pose_landmarks.shape == (
+            self._n_landmarks, self._n_dimensions), 'Unexpected shape: {}'.format(pose_landmarks.shape)
+
+        # Get given pose embedding.
+        pose_embedding = self._pose_embedder(pose_landmarks)
+        flipped_pose_embedding = self._pose_embedder(
+            pose_landmarks * np.array([-1, 1, 1]))
+
+        # Filter by max distance.
+        #
+        # That helps to remove outliers - poses that are almost the same as the
+        # given one, but has one joint bent into another direction and actually
+        # represnt a different pose class.
+        max_dist_heap = []
+        for sample_idx, sample in enumerate(self._pose_samples):
+            max_dist = min(
+                np.max(np.abs(sample.embedding - pose_embedding)
+                       * self._axes_weights),
+                np.max(np.abs(sample.embedding - flipped_pose_embedding)
+                       * self._axes_weights),
+            )
+            max_dist_heap.append([max_dist, sample_idx])
+
+        max_dist_heap = sorted(max_dist_heap, key=lambda x: x[0])
+        max_dist_heap = max_dist_heap[:self._top_n_by_max_distance]
+
+        # Filter by mean distance.
+        #
+        # After removing outliers we can find the nearest pose by mean distance.
+        mean_dist_heap = []
+        for _, sample_idx in max_dist_heap:
+            sample = self._pose_samples[sample_idx]
+            mean_dist = min(
+                np.mean(np.abs(sample.embedding - pose_embedding)
+                        * self._axes_weights),
+                np.mean(np.abs(sample.embedding - flipped_pose_embedding)
+                        * self._axes_weights),
+            )
+            mean_dist_heap.append([mean_dist, sample_idx])
+
+        mean_dist_heap = sorted(mean_dist_heap, key=lambda x: x[0])
+        mean_dist_heap = mean_dist_heap[:self._top_n_by_mean_distance]
+
+        # Collect results into map: (class_name -> n_samples)
+        class_names = [
+            self._pose_samples[sample_idx].class_name for _, sample_idx in mean_dist_heap]
+        result = {class_name: class_names.count(
+            class_name) for class_name in set(class_names)}
+
+        return result
+
+
+class EMADictSmoothing(object):
+    """Smoothes pose classification."""
+
+    def __init__(self, window_size=10, alpha=0.2):
+        self._window_size = window_size
+        self._alpha = alpha
+
+        self._data_in_window = []
+
+    def __call__(self, data):
+        """Smoothes given pose classification.
+
+        Smoothing is done by computing Exponential Moving Average for every pose
+        class observed in the given time window. Missed pose classes are replaced
+        with 0.
+
+        Args:
+          data: Dictionary with pose classification. Sample:
+              {
+                'pushups_down': 8,
+                'pushups_up': 2,
+              }
+
+        Result:
+          Dictionary in the same format but with smoothed and float instead of
+          integer values. Sample:
+            {
+              'pushups_down': 8.3,
+              'pushups_up': 1.7,
+            }
+        """
+        # Add new data to the beginning of the window for simpler code.
+        self._data_in_window.insert(0, data)
+        self._data_in_window = self._data_in_window[:self._window_size]
+
+        # Get all keys.
+        keys = set(
+            [key for data in self._data_in_window for key, _ in data.items()])
+
+        # Get smoothed values.
+        smoothed_data = dict()
+        for key in keys:
+            factor = 1.0
+            top_sum = 0.0
+            bottom_sum = 0.0
+            for data in self._data_in_window:
+                value = data[key] if key in data else 0.0
+
+                top_sum += factor * value
+                bottom_sum += factor
+
+                # Update factor.
+                factor *= (1.0 - self._alpha)
+
+            smoothed_data[key] = top_sum / bottom_sum
+
+        return smoothed_data
+
+
+class PoseChecker(object):
+    """Counts number of repetitions of given target pose class."""
+
+    def __init__(self, enter_threshold=6, exit_threshold=4):
+        self._enter_threshold = enter_threshold
+        self._exit_threshold = exit_threshold
+
+        self._pose_entered = False
+        self._pose_exited = False
+
+    def __call__(self, class_name, pose_classification):
+
+        pose_confidence = 0.0
+
+        if class_name in pose_classification:
+            pose_confidence = pose_classification[class_name]
+
+        # calc entered state
+        if not self._pose_entered:
+            self._pose_entered = pose_confidence > self._enter_threshold
+
+        if self._pose_entered:
+            self._pose_exited = False
+
+        if pose_confidence < self._exit_threshold:
+            self._pose_entered = False
+            self._pose_exited = True
+
+        return self._pose_entered, self._pose_exited
+
+
+class PoseClassificationVisualizer(object):
+    """Keeps track of claassifcations for every frame and renders them."""
+
+    def __init__(self,
+                 plot_location_x=0.05,
+                 plot_location_y=0.05,
+                 plot_max_width=0.4,
+                 plot_max_height=0.4,
+                 plot_figsize=(9, 4),
+                 plot_x_max=None,
+                 plot_y_max=None,
+                 counter_location_x=0.5,
+                 counter_location_y=0.05,
+                 counter_font_path='https://github.com/googlefonts/roboto/blob/main/src/hinted/Roboto-Regular.ttf?raw=true',
+                 counter_font_color='red',
+                 counter_font_size=0.02):
+        self._plot_location_x = plot_location_x
+        self._plot_location_y = plot_location_y
+        self._plot_max_width = plot_max_width
+        self._plot_max_height = plot_max_height
+        self._plot_figsize = plot_figsize
+        self._plot_x_max = plot_x_max
+        self._plot_y_max = plot_y_max
+        self._counter_location_x = counter_location_x
+        self._counter_location_y = counter_location_y
+        self._counter_font_path = counter_font_path
+        self._counter_font_color = counter_font_color
+        self._counter_font_size = counter_font_size
+
+        self._counter_font = None
+
+        self._pose_classification_history = []
+        self._pose_classification_filtered_history = []
+
+    def __call__(self,
+                 class_name,
+                 frame,
+                 pose_classification,
+                 pose_classification_filtered
+                 ):
+        """Renders pose classifcation and counter until given frame."""
+        # Extend classification history.
+        self._pose_classification_history.append(pose_classification)
+        self._pose_classification_filtered_history.append(
+            pose_classification_filtered)
+
+        # Output frame with classification plot and counter.
+        output_img = Image.fromarray(frame)
+
+        output_width = output_img.size[0]
+        output_height = output_img.size[1]
+
+        # Draw the plot.
+        img = self._plot_classification_history(
+            class_name, output_width, output_height)
+        img.thumbnail((int(output_width * self._plot_max_width),
+                       int(output_height * self._plot_max_height)),
+                      Image.ANTIALIAS)
+        output_img.paste(img,
+                         (int(output_width * self._plot_location_x),
+                          int(output_height * self._plot_location_y)))
+
+        class_names = [class_name for class_name, count in pose_classification.items(
+        ) if count == max(pose_classification.values())]
+
+        # Draw the count.
+        output_img_draw = ImageDraw.Draw(output_img)
+        if self._counter_font is None:
+            font_size = int(output_height * self._counter_font_size)
+            font_request = requests.get(
+                self._counter_font_path, allow_redirects=True)
+            self._counter_font = ImageFont.truetype(
+                io.BytesIO(font_request.content), size=font_size)
+        str1 = 'ref: ' + str(class_name)
+        output_img_draw.text((output_width * self._counter_location_x,
+                              output_height * (self._counter_location_y + 0.05)),
+                             str1,
+                             font=self._counter_font,
+                             fill=self._counter_font_color)
+        str2 = 'crnt: ' + str(class_names[0])
+        output_img_draw.text((output_width * self._counter_location_x,
+                              output_height * self._counter_location_y),
+                             str2,
+                             font=self._counter_font,
+                             fill=self._counter_font_color)
+
+        return output_img
+
+    def _plot_classification_history(self, class_name, output_width, output_height):
+        fig = plt.figure(figsize=self._plot_figsize)
+
+        for classification_history in [self._pose_classification_history,
+                                       self._pose_classification_filtered_history]:
+            y = []
+            for classification in classification_history:
+                if classification is None:
+                    y.append(None)
+                elif class_name in classification:
+                    y.append(classification[class_name])
+                else:
+                    y.append(0)
+            plt.plot(y, linewidth=7)
+
+        plt.grid(axis='y', alpha=0.75)
+        plt.xlabel('Frame')
+        plt.ylabel('Confidence')
+        plt.title('Classification history for `{}`'.format(class_name))
+        # plt.legend()
+
+        if self._plot_y_max is not None:
+            plt.ylim(top=self._plot_y_max)
+        if self._plot_x_max is not None:
+            plt.xlim(right=self._plot_x_max)
+
+        # Convert plot to image.
+        buf = io.BytesIO()
+        dpi = min(
+            output_width * self._plot_max_width / float(self._plot_figsize[0]),
+            output_height * self._plot_max_height / float(self._plot_figsize[1]))
+        fig.savefig(buf, dpi=dpi)
+        buf.seek(0)
+        img = Image.open(buf)
+        plt.close()
+
+        return img
+
+
+# Specify your video name and target pose class to count the repetitions.
+video_path = r'D:\videos\yoga\demo2.mp4'
+class_names = ['yoga_raise', 'yoga_stretch_arm', 'yoga_ready']
+out_video_path = r'D:\videos\yoga\demo2_out4.mp4'
+
+# Open the video.
+
+video_cap = cv2.VideoCapture(video_path)
+
+# Get some video parameters to generate output video with classificaiton.
+video_n_frames = video_cap.get(cv2.CAP_PROP_FRAME_COUNT)
+video_fps = video_cap.get(cv2.CAP_PROP_FPS)
+video_width = int(video_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+video_height = int(video_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+# Initilize tracker, classifier and counter.
+# Do that before every video as all of them have state.
+
+class_idx = 0
+# Folder with pose class CSVs. That should be the same folder you using while
+# building classifier to output CSVs.
+pose_samples_folder = r'D:\videos\yoga\yoga_csvs_out'
+
+# Initialize tracker.
+pose_tracker = mp_pose.Pose(model_complexity=2,
+                            min_detection_confidence=0.5,
+                            min_tracking_confidence=0.5)
+
+# Initialize embedder.
+pose_embedder = FullBodyPoseEmbedder()
+
+# Initialize classifier.
+# Check that you are using the same parameters as during bootstrapping.
+pose_classifier = PoseClassifier(
+    pose_samples_folder=pose_samples_folder,
+    pose_embedder=pose_embedder,
+    top_n_by_max_distance=30,
+    top_n_by_mean_distance=10)
+
+# # Uncomment to validate target poses used by classifier and find outliers.
+# outliers = pose_classifier.find_pose_sample_outliers()
+# print('Number of pose sample outliers (consider removing them): ', len(outliers))
+
+# Initialize EMA smoothing.
+pose_classification_filter = EMADictSmoothing(
+    window_size=10,
+    alpha=0.2)
+
+# Initialize checker.
+pose_checker = PoseChecker(
+    enter_threshold=6,
+    exit_threshold=4
+)
+
+# Initialize renderer.
+pose_classification_visualizer = PoseClassificationVisualizer(
+    plot_x_max=video_n_frames,
+    # Graphic looks nicer if it's the same as `top_n_by_mean_distance`.
+    plot_y_max=10)
+
+
+# Run classification on a video.
+
+
+# Open output video.
+out_video = cv2.VideoWriter(out_video_path, cv2.VideoWriter_fourcc(
+    *'mp4v'), video_fps, (video_width, video_height))
+
+
+frame_idx = 0
+start_timer = 0
+start_flag = False
+exit_flag = True
+duration = 0
+completed = False
+output_frame = None
+
+while True:
+    # Get next frame of the video.
+    success, input_frame = video_cap.read()
+    if not success:
+        break
+
+    # Run pose tracker.
+    input_frame = cv2.cvtColor(input_frame, cv2.COLOR_BGR2RGB)
+    result = pose_tracker.process(image=input_frame)
+    pose_landmarks = result.pose_landmarks
+
+    # Draw pose prediction.
+    output_frame = input_frame.copy()
+    if pose_landmarks is not None:
+        mp_drawing.draw_landmarks(
+            image=output_frame,
+            landmark_list=pose_landmarks,
+            connections=mp_pose.POSE_CONNECTIONS)
+
+    if pose_landmarks is not None:
+        # Get landmarks.
+        frame_height, frame_width = output_frame.shape[0], output_frame.shape[1]
+        pose_landmarks = np.array([[lmk.x * frame_width, lmk.y * frame_height, lmk.z * frame_width]
+                                   for lmk in pose_landmarks.landmark], dtype=np.float32)
+        assert pose_landmarks.shape == (
+            33, 3), 'Unexpected landmarks shape: {}'.format(pose_landmarks.shape)
+
+        # Classify the pose on the current frame.
+        pose_classification = pose_classifier(pose_landmarks)
+
+        # Smooth classification using EMA.
+        pose_classification_filtered = pose_classification_filter(
+            pose_classification)
+
+        enter, exit = pose_checker(
+            class_names[class_idx], pose_classification_filtered)
+
+        print(f"{frame_idx} {pose_classification_filtered}")
+        # if enter and not start_flag:
+        #     start_timer = time.time()
+        #     start_flag = True
+        #     exit_flag = False
+        #     print('start_timer')
+
+        # if exit and not exit_flag:
+        #     exit_flag = True
+        #     start_flag = False
+        #     duration = time.time() - start_timer
+        #     print('duration', duration)
+        #     if duration > 3:
+        #         class_idx += 1
+        #         if class_idx > 2:
+        #             completed = True
+        #             class_idx = 2
+        #     duration = 0
+    else:
+        # No pose => no classification on current frame.
+        pose_classification = None
+
+        # Still add empty classification to the filter to maintaing correct
+        # smoothing for future frames.
+        pose_classification_filtered = pose_classification_filter(dict())
+        pose_classification_filtered = None
+
+        # Don't update the counter presuming that person is 'frozen'. Just
+        # take the latest repetitions count.
+        # repetitions_count = repetition_counter.n_repeats
+
+    # Draw classification plot and repetition counter.
+    if not completed:
+        output_frame = pose_classification_visualizer(
+            class_name=class_names[class_idx],
+            frame=output_frame,
+            pose_classification=pose_classification,
+            pose_classification_filtered=pose_classification_filtered,
+        )
+    if completed:
+        output_frame = pose_classification_visualizer(
+            class_name="done",
+            frame=output_frame,
+            pose_classification=pose_classification,
+            pose_classification_filtered=pose_classification_filtered,
+        )
+    cv2.imshow('predicting', np.array(output_frame))
+
+    # Save the output frame.
+    # out_video.write(cv2.cvtColor(np.array(output_frame), cv2.COLOR_RGB2BGR))
+
+    # Show intermediate frames of the video to track progress.
+    # if frame_idx % 50 == 0:
+    #     show_image(output_frame)
+
+    frame_idx += 1
+
+# Close output video.
+out_video.release()
+
+# Release MediaPipe resources.
+pose_tracker.close()
+
+# Show the last frame of the video.
+# if output_frame is not None:
+#     show_image(output_frame)
