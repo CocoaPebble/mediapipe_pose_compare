@@ -12,23 +12,23 @@ def normalize(x):
 
 
 def dcm_from_axis(x_dir, y_dir, z_dir, order):
-    assert order in ['yzx', 'yxz', 'xyz', 'xzy', 'zxy', 'zyx']
+    assert order in ["yzx", "yxz", "xyz", "xzy", "zxy", "zyx"]
 
-    axis = {'x': x_dir, 'y': y_dir, 'z': z_dir}
-    name = ['x', 'y', 'z']    
+    axis = {"x": x_dir, "y": y_dir, "z": z_dir}
+    name = ["x", "y", "z"]
     idx0 = name.index(order[0])
     idx1 = name.index(order[1])
     idx2 = name.index(order[2])
 
     axis[order[0]] = normalize(axis[order[0]])
-    axis[order[1]] = normalize(np.cross(
-        axis[name[(idx1 + 1) % 3]], axis[name[(idx1 + 2) % 3]]
-    ))   
-    axis[order[2]] = normalize(np.cross(
-        axis[name[(idx2 + 1) % 3]], axis[name[(idx2 + 2) % 3]]
-    ))
+    axis[order[1]] = normalize(
+        np.cross(axis[name[(idx1 + 1) % 3]], axis[name[(idx1 + 2) % 3]])
+    )
+    axis[order[2]] = normalize(
+        np.cross(axis[name[(idx2 + 1) % 3]], axis[name[(idx2 + 2) % 3]])
+    )
 
-    dcm = np.asarray([axis['x'], axis['y'], axis['z']])
+    dcm = np.asarray([axis["x"], axis["y"], axis["z"]])
 
     return dcm
 
@@ -124,7 +124,7 @@ def quat_divide(q, r):
     return quat_mul(quat_inverse(r), q)
 
 
-def quat2euler(q, order='zxy', eps=1e-8):
+def quat2euler(q, order="zxy", eps=1e-8):
     original_shape = list(q.shape)
     original_shape[-1] = 3
     q = np.reshape(q, [-1, 4])
@@ -134,12 +134,12 @@ def quat2euler(q, order='zxy', eps=1e-8):
     q2 = q[:, 2]
     q3 = q[:, 3]
 
-    if order == 'zxy':
+    if order == "zxy":
         x = np.arcsin(np.clip(2 * (q0 * q1 + q2 * q3), -1 + eps, 1 - eps))
         y = np.arctan2(2 * (q0 * q2 - q1 * q3), 1 - 2 * (q1 * q1 + q2 * q2))
         z = np.arctan2(2 * (q0 * q3 - q1 * q2), 1 - 2 * (q1 * q1 + q3 * q3))
         euler = np.stack([z, x, y], axis=1)
     else:
-        raise ValueError('Not implemented')
+        raise ValueError("Not implemented")
 
     return np.reshape(euler, original_shape)

@@ -22,22 +22,39 @@ class FullBodyPoseEmbedder(object):
 
         # Names of the landmarks as they appear in the prediction.
         self._landmark_names = [
-            'nose',
-            'left_eye_inner', 'left_eye', 'left_eye_outer',
-            'right_eye_inner', 'right_eye', 'right_eye_outer',
-            'left_ear', 'right_ear',
-            'mouth_left', 'mouth_right',
-            'left_shoulder', 'right_shoulder',
-            'left_elbow', 'right_elbow',
-            'left_wrist', 'right_wrist',
-            'left_pinky_1', 'right_pinky_1',
-            'left_index_1', 'right_index_1',
-            'left_thumb_2', 'right_thumb_2',
-            'left_hip', 'right_hip',
-            'left_knee', 'right_knee',
-            'left_ankle', 'right_ankle',
-            'left_heel', 'right_heel',
-            'left_foot_index', 'right_foot_index',
+            "nose",
+            "left_eye_inner",
+            "left_eye",
+            "left_eye_outer",
+            "right_eye_inner",
+            "right_eye",
+            "right_eye_outer",
+            "left_ear",
+            "right_ear",
+            "mouth_left",
+            "mouth_right",
+            "left_shoulder",
+            "right_shoulder",
+            "left_elbow",
+            "right_elbow",
+            "left_wrist",
+            "right_wrist",
+            "left_pinky_1",
+            "right_pinky_1",
+            "left_index_1",
+            "right_index_1",
+            "left_thumb_2",
+            "right_thumb_2",
+            "left_hip",
+            "right_hip",
+            "left_knee",
+            "right_knee",
+            "left_ankle",
+            "right_ankle",
+            "left_heel",
+            "right_heel",
+            "left_foot_index",
+            "right_foot_index",
         ]
 
     def __call__(self, landmarks):
@@ -51,7 +68,8 @@ class FullBodyPoseEmbedder(object):
           pairwise distances defined in `_get_pose_distance_embedding`.
         """
         assert landmarks.shape[0] == len(
-            self._landmark_names), 'Unexpected number of landmarks: {}'.format(landmarks.shape[0])
+            self._landmark_names
+        ), "Unexpected number of landmarks: {}".format(landmarks.shape[0])
 
         # Get pose landmarks.
         landmarks = np.copy(landmarks)
@@ -82,8 +100,8 @@ class FullBodyPoseEmbedder(object):
 
     def _get_pose_center(self, landmarks):
         """Calculates pose center as point between hips."""
-        left_hip = landmarks[self._landmark_names.index('left_hip')]
-        right_hip = landmarks[self._landmark_names.index('right_hip')]
+        left_hip = landmarks[self._landmark_names.index("left_hip")]
+        right_hip = landmarks[self._landmark_names.index("right_hip")]
         center = (left_hip + right_hip) * 0.5
         return center
 
@@ -98,14 +116,13 @@ class FullBodyPoseEmbedder(object):
         landmarks = landmarks[:, :2]
 
         # Hips center.
-        left_hip = landmarks[self._landmark_names.index('left_hip')]
-        right_hip = landmarks[self._landmark_names.index('right_hip')]
+        left_hip = landmarks[self._landmark_names.index("left_hip")]
+        right_hip = landmarks[self._landmark_names.index("right_hip")]
         hips = (left_hip + right_hip) * 0.5
 
         # Shoulders center.
-        left_shoulder = landmarks[self._landmark_names.index('left_shoulder')]
-        right_shoulder = landmarks[self._landmark_names.index(
-            'right_shoulder')]
+        left_shoulder = landmarks[self._landmark_names.index("left_shoulder")]
+        right_shoulder = landmarks[self._landmark_names.index("right_shoulder")]
         shoulders = (left_shoulder + right_shoulder) * 0.5
 
         # Torso size as the minimum body size.
@@ -131,74 +148,50 @@ class FullBodyPoseEmbedder(object):
           Numpy array with pose embedding of shape (M, 3) where `M` is the number of
           pairwise distances.
         """
-        embedding = np.array([
-            # One joint.
-
-            self._get_distance(
-                self._get_average_by_names(landmarks, 'left_hip', 'right_hip'),
-                self._get_average_by_names(landmarks, 'left_shoulder', 'right_shoulder')),
-
-            self._get_distance_by_names(
-                landmarks, 'left_shoulder', 'left_elbow'),
-            self._get_distance_by_names(
-                landmarks, 'right_shoulder', 'right_elbow'),
-
-            self._get_distance_by_names(landmarks, 'left_elbow', 'left_wrist'),
-            self._get_distance_by_names(
-                landmarks, 'right_elbow', 'right_wrist'),
-
-            self._get_distance_by_names(landmarks, 'left_hip', 'left_knee'),
-            self._get_distance_by_names(landmarks, 'right_hip', 'right_knee'),
-
-            self._get_distance_by_names(landmarks, 'left_knee', 'left_ankle'),
-            self._get_distance_by_names(
-                landmarks, 'right_knee', 'right_ankle'),
-
-            # Two joints.
-
-            self._get_distance_by_names(
-                landmarks, 'left_shoulder', 'left_wrist'),
-            self._get_distance_by_names(
-                landmarks, 'right_shoulder', 'right_wrist'),
-
-            self._get_distance_by_names(landmarks, 'left_hip', 'left_ankle'),
-            self._get_distance_by_names(landmarks, 'right_hip', 'right_ankle'),
-
-            # Four joints.
-
-            self._get_distance_by_names(landmarks, 'left_hip', 'left_wrist'),
-            self._get_distance_by_names(landmarks, 'right_hip', 'right_wrist'),
-
-            # Five joints.
-
-            self._get_distance_by_names(
-                landmarks, 'left_shoulder', 'left_ankle'),
-            self._get_distance_by_names(
-                landmarks, 'right_shoulder', 'right_ankle'),
-
-            self._get_distance_by_names(landmarks, 'left_hip', 'left_wrist'),
-            self._get_distance_by_names(landmarks, 'right_hip', 'right_wrist'),
-
-            # Cross body.
-
-            self._get_distance_by_names(
-                landmarks, 'left_elbow', 'right_elbow'),
-            self._get_distance_by_names(landmarks, 'left_knee', 'right_knee'),
-
-            self._get_distance_by_names(
-                landmarks, 'left_wrist', 'right_wrist'),
-            self._get_distance_by_names(
-                landmarks, 'left_ankle', 'right_ankle'),
-
-            # Body bent direction.
-
-            # self._get_distance(
-            #     self._get_average_by_names(landmarks, 'left_wrist', 'left_ankle'),
-            #     landmarks[self._landmark_names.index('left_hip')]),
-            # self._get_distance(
-            #     self._get_average_by_names(landmarks, 'right_wrist', 'right_ankle'),
-            #     landmarks[self._landmark_names.index('right_hip')]),
-        ])
+        embedding = np.array(
+            [
+                # One joint.
+                self._get_distance(
+                    self._get_average_by_names(landmarks, "left_hip", "right_hip"),
+                    self._get_average_by_names(
+                        landmarks, "left_shoulder", "right_shoulder"
+                    ),
+                ),
+                self._get_distance_by_names(landmarks, "left_shoulder", "left_elbow"),
+                self._get_distance_by_names(landmarks, "right_shoulder", "right_elbow"),
+                self._get_distance_by_names(landmarks, "left_elbow", "left_wrist"),
+                self._get_distance_by_names(landmarks, "right_elbow", "right_wrist"),
+                self._get_distance_by_names(landmarks, "left_hip", "left_knee"),
+                self._get_distance_by_names(landmarks, "right_hip", "right_knee"),
+                self._get_distance_by_names(landmarks, "left_knee", "left_ankle"),
+                self._get_distance_by_names(landmarks, "right_knee", "right_ankle"),
+                # Two joints.
+                self._get_distance_by_names(landmarks, "left_shoulder", "left_wrist"),
+                self._get_distance_by_names(landmarks, "right_shoulder", "right_wrist"),
+                self._get_distance_by_names(landmarks, "left_hip", "left_ankle"),
+                self._get_distance_by_names(landmarks, "right_hip", "right_ankle"),
+                # Four joints.
+                self._get_distance_by_names(landmarks, "left_hip", "left_wrist"),
+                self._get_distance_by_names(landmarks, "right_hip", "right_wrist"),
+                # Five joints.
+                self._get_distance_by_names(landmarks, "left_shoulder", "left_ankle"),
+                self._get_distance_by_names(landmarks, "right_shoulder", "right_ankle"),
+                self._get_distance_by_names(landmarks, "left_hip", "left_wrist"),
+                self._get_distance_by_names(landmarks, "right_hip", "right_wrist"),
+                # Cross body.
+                self._get_distance_by_names(landmarks, "left_elbow", "right_elbow"),
+                self._get_distance_by_names(landmarks, "left_knee", "right_knee"),
+                self._get_distance_by_names(landmarks, "left_wrist", "right_wrist"),
+                self._get_distance_by_names(landmarks, "left_ankle", "right_ankle"),
+                # Body bent direction.
+                # self._get_distance(
+                #     self._get_average_by_names(landmarks, 'left_wrist', 'left_ankle'),
+                #     landmarks[self._landmark_names.index('left_hip')]),
+                # self._get_distance(
+                #     self._get_average_by_names(landmarks, 'right_wrist', 'right_ankle'),
+                #     landmarks[self._landmark_names.index('right_hip')]),
+            ]
+        )
 
         return embedding
 
@@ -217,7 +210,6 @@ class FullBodyPoseEmbedder(object):
 
 
 class PoseSample(object):
-
     def __init__(self, name, landmarks, class_name, embedding):
         self.name = name
         self.landmarks = landmarks
@@ -227,7 +219,6 @@ class PoseSample(object):
 
 
 class PoseSampleOutlier(object):
-
     def __init__(self, sample, detected_class, all_classes):
         self.sample = sample
         self.detected_class = detected_class
@@ -237,16 +228,18 @@ class PoseSampleOutlier(object):
 class PoseClassifier(object):
     """Classifies pose landmarks."""
 
-    def __init__(self,
-                 pose_samples_folder,
-                 pose_embedder,
-                 file_extension='csv',
-                 file_separator=',',
-                 n_landmarks=33,
-                 n_dimensions=3,
-                 top_n_by_max_distance=30,
-                 top_n_by_mean_distance=10,
-                 axes_weights=(1., 1., 0.2)):
+    def __init__(
+        self,
+        pose_samples_folder,
+        pose_embedder,
+        file_extension="csv",
+        file_separator=",",
+        n_landmarks=33,
+        n_dimensions=3,
+        top_n_by_max_distance=30,
+        top_n_by_mean_distance=10,
+        axes_weights=(1.0, 1.0, 0.2),
+    ):
         self._pose_embedder = pose_embedder
         self._n_landmarks = n_landmarks
         self._n_dimensions = n_dimensions
@@ -254,20 +247,24 @@ class PoseClassifier(object):
         self._top_n_by_mean_distance = top_n_by_mean_distance
         self._axes_weights = axes_weights
 
-        self._pose_samples = self._load_pose_samples(pose_samples_folder,
-                                                     file_extension,
-                                                     file_separator,
-                                                     n_landmarks,
-                                                     n_dimensions,
-                                                     pose_embedder)
+        self._pose_samples = self._load_pose_samples(
+            pose_samples_folder,
+            file_extension,
+            file_separator,
+            n_landmarks,
+            n_dimensions,
+            pose_embedder,
+        )
 
-    def _load_pose_samples(self,
-                           pose_samples_folder,
-                           file_extension,
-                           file_separator,
-                           n_landmarks,
-                           n_dimensions,
-                           pose_embedder):
+    def _load_pose_samples(
+        self,
+        pose_samples_folder,
+        file_extension,
+        file_separator,
+        n_landmarks,
+        n_dimensions,
+        pose_embedder,
+    ):
         """Loads pose samples from a given folder.
 
         Required folder structure:
@@ -283,13 +280,16 @@ class PoseClassifier(object):
           ...
         """
         # Each file in the folder represents one pose class.
-        file_names = [name for name in os.listdir(
-            pose_samples_folder) if name.endswith(file_extension)]
+        file_names = [
+            name
+            for name in os.listdir(pose_samples_folder)
+            if name.endswith(file_extension)
+        ]
 
         pose_samples = []
         for file_name in file_names:
             # Use file name as pose class name.
-            class_name = file_name[:-(len(file_extension) + 1)]
+            class_name = file_name[: -(len(file_extension) + 1)]
 
             # Parse CSV.
             with open(os.path.join(pose_samples_folder, file_name)) as csv_file:
@@ -297,16 +297,20 @@ class PoseClassifier(object):
                 # Filter out empty rows
                 csv_reader = (row for row in csv_reader if row)
                 for row in csv_reader:
-                    assert len(row) == n_landmarks * n_dimensions + \
-                        1, 'Wrong number of values: {}'.format(len(row))
+                    assert (
+                        len(row) == n_landmarks * n_dimensions + 1
+                    ), "Wrong number of values: {}".format(len(row))
                     landmarks = np.array(row[1:], np.float32).reshape(
-                        [n_landmarks, n_dimensions])
-                    pose_samples.append(PoseSample(
-                        name=row[0],
-                        landmarks=landmarks,
-                        class_name=class_name,
-                        embedding=pose_embedder(landmarks),
-                    ))
+                        [n_landmarks, n_dimensions]
+                    )
+                    pose_samples.append(
+                        PoseSample(
+                            name=row[0],
+                            landmarks=landmarks,
+                            class_name=class_name,
+                            embedding=pose_embedder(landmarks),
+                        )
+                    )
 
         return pose_samples
 
@@ -318,14 +322,18 @@ class PoseClassifier(object):
             # Find nearest poses for the target one.
             pose_landmarks = sample.landmarks.copy()
             pose_classification = self.__call__(pose_landmarks)
-            class_names = [class_name for class_name, count in pose_classification.items(
-            ) if count == max(pose_classification.values())]
+            class_names = [
+                class_name
+                for class_name, count in pose_classification.items()
+                if count == max(pose_classification.values())
+            ]
 
             # Sample is an outlier if nearest poses have different class or more than
             # one pose class is detected as nearest.
             if sample.class_name not in class_names or len(class_names) != 1:
-                outliers.append(PoseSampleOutlier(
-                    sample, class_names, pose_classification))
+                outliers.append(
+                    PoseSampleOutlier(sample, class_names, pose_classification)
+                )
 
         return outliers
 
@@ -351,12 +359,15 @@ class PoseClassifier(object):
         """
         # Check that provided and target poses have the same shape.
         assert pose_landmarks.shape == (
-            self._n_landmarks, self._n_dimensions), 'Unexpected shape: {}'.format(pose_landmarks.shape)
+            self._n_landmarks,
+            self._n_dimensions,
+        ), "Unexpected shape: {}".format(pose_landmarks.shape)
 
         # Get given pose embedding.
         pose_embedding = self._pose_embedder(pose_landmarks)
         flipped_pose_embedding = self._pose_embedder(
-            pose_landmarks * np.array([-1, 1, 1]))
+            pose_landmarks * np.array([-1, 1, 1])
+        )
 
         # Filter by max distance.
         #
@@ -366,15 +377,16 @@ class PoseClassifier(object):
         max_dist_heap = []
         for sample_idx, sample in enumerate(self._pose_samples):
             max_dist = min(
-                np.max(np.abs(sample.embedding - pose_embedding)
-                       * self._axes_weights),
-                np.max(np.abs(sample.embedding - flipped_pose_embedding)
-                       * self._axes_weights),
+                np.max(np.abs(sample.embedding - pose_embedding) * self._axes_weights),
+                np.max(
+                    np.abs(sample.embedding - flipped_pose_embedding)
+                    * self._axes_weights
+                ),
             )
             max_dist_heap.append([max_dist, sample_idx])
 
         max_dist_heap = sorted(max_dist_heap, key=lambda x: x[0])
-        max_dist_heap = max_dist_heap[:self._top_n_by_max_distance]
+        max_dist_heap = max_dist_heap[: self._top_n_by_max_distance]
 
         # Filter by mean distance.
         #
@@ -383,21 +395,25 @@ class PoseClassifier(object):
         for _, sample_idx in max_dist_heap:
             sample = self._pose_samples[sample_idx]
             mean_dist = min(
-                np.mean(np.abs(sample.embedding - pose_embedding)
-                        * self._axes_weights),
-                np.mean(np.abs(sample.embedding - flipped_pose_embedding)
-                        * self._axes_weights),
+                np.mean(np.abs(sample.embedding - pose_embedding) * self._axes_weights),
+                np.mean(
+                    np.abs(sample.embedding - flipped_pose_embedding)
+                    * self._axes_weights
+                ),
             )
             mean_dist_heap.append([mean_dist, sample_idx])
 
         mean_dist_heap = sorted(mean_dist_heap, key=lambda x: x[0])
-        mean_dist_heap = mean_dist_heap[:self._top_n_by_mean_distance]
+        mean_dist_heap = mean_dist_heap[: self._top_n_by_mean_distance]
 
         # Collect results into map: (class_name -> n_samples)
         class_names = [
-            self._pose_samples[sample_idx].class_name for _, sample_idx in mean_dist_heap]
-        result = {class_name: class_names.count(
-            class_name) for class_name in set(class_names)}
+            self._pose_samples[sample_idx].class_name
+            for _, sample_idx in mean_dist_heap
+        ]
+        result = {
+            class_name: class_names.count(class_name) for class_name in set(class_names)
+        }
 
         return result
 
@@ -435,11 +451,10 @@ class EMADictSmoothing(object):
         """
         # Add new data to the beginning of the window for simpler code.
         self._data_in_window.insert(0, data)
-        self._data_in_window = self._data_in_window[:self._window_size]
+        self._data_in_window = self._data_in_window[: self._window_size]
 
         # Get all keys.
-        keys = set(
-            [key for data in self._data_in_window for key, _ in data.items()])
+        keys = set([key for data in self._data_in_window for key, _ in data.items()])
 
         # Get smoothed values.
         smoothed_data = dict()
@@ -454,7 +469,7 @@ class EMADictSmoothing(object):
                 bottom_sum += factor
 
                 # Update factor.
-                factor *= (1.0 - self._alpha)
+                factor *= 1.0 - self._alpha
 
             smoothed_data[key] = top_sum / bottom_sum
 
@@ -495,19 +510,21 @@ class PoseChecker(object):
 class PoseClassificationVisualizer(object):
     """Keeps track of claassifcations for every frame and renders them."""
 
-    def __init__(self,
-                 plot_location_x=0.05,
-                 plot_location_y=0.05,
-                 plot_max_width=0.4,
-                 plot_max_height=0.4,
-                 plot_figsize=(9, 4),
-                 plot_x_max=None,
-                 plot_y_max=None,
-                 counter_location_x=0.5,
-                 counter_location_y=0.05,
-                 counter_font_path='https://github.com/googlefonts/roboto/blob/main/src/hinted/Roboto-Regular.ttf?raw=true',
-                 counter_font_color='red',
-                 counter_font_size=0.02):
+    def __init__(
+        self,
+        plot_location_x=0.05,
+        plot_location_y=0.05,
+        plot_max_width=0.4,
+        plot_max_height=0.4,
+        plot_figsize=(9, 4),
+        plot_x_max=None,
+        plot_y_max=None,
+        counter_location_x=0.5,
+        counter_location_y=0.05,
+        counter_font_path="https://github.com/googlefonts/roboto/blob/main/src/hinted/Roboto-Regular.ttf?raw=true",
+        counter_font_color="red",
+        counter_font_size=0.02,
+    ):
         self._plot_location_x = plot_location_x
         self._plot_location_y = plot_location_y
         self._plot_max_width = plot_max_width
@@ -526,17 +543,13 @@ class PoseClassificationVisualizer(object):
         self._pose_classification_history = []
         self._pose_classification_filtered_history = []
 
-    def __call__(self,
-                 class_name,
-                 frame,
-                 pose_classification,
-                 pose_classification_filtered
-                 ):
+    def __call__(
+        self, class_name, frame, pose_classification, pose_classification_filtered
+    ):
         """Renders pose classifcation and counter until given frame."""
         # Extend classification history.
         self._pose_classification_history.append(pose_classification)
-        self._pose_classification_filtered_history.append(
-            pose_classification_filtered)
+        self._pose_classification_filtered_history.append(pose_classification_filtered)
 
         # Output frame with classification plot and counter.
         output_img = Image.fromarray(frame)
@@ -545,46 +558,66 @@ class PoseClassificationVisualizer(object):
         output_height = output_img.size[1]
 
         # Draw the plot.
-        img = self._plot_classification_history(
-            class_name, output_width, output_height)
-        img.thumbnail((int(output_width * self._plot_max_width),
-                       int(output_height * self._plot_max_height)),
-                      Image.ANTIALIAS)
-        output_img.paste(img,
-                         (int(output_width * self._plot_location_x),
-                          int(output_height * self._plot_location_y)))
+        img = self._plot_classification_history(class_name, output_width, output_height)
+        img.thumbnail(
+            (
+                int(output_width * self._plot_max_width),
+                int(output_height * self._plot_max_height),
+            ),
+            Image.ANTIALIAS,
+        )
+        output_img.paste(
+            img,
+            (
+                int(output_width * self._plot_location_x),
+                int(output_height * self._plot_location_y),
+            ),
+        )
 
-        class_names = [class_name for class_name, count in pose_classification.items(
-        ) if count == max(pose_classification.values())]
+        class_names = [
+            class_name
+            for class_name, count in pose_classification.items()
+            if count == max(pose_classification.values())
+        ]
 
         # Draw the count.
         output_img_draw = ImageDraw.Draw(output_img)
         if self._counter_font is None:
             font_size = int(output_height * self._counter_font_size)
-            font_request = requests.get(
-                self._counter_font_path, allow_redirects=True)
+            font_request = requests.get(self._counter_font_path, allow_redirects=True)
             self._counter_font = ImageFont.truetype(
-                io.BytesIO(font_request.content), size=font_size)
-        str1 = 'ref: ' + str(class_name)
-        output_img_draw.text((output_width * self._counter_location_x,
-                              output_height * (self._counter_location_y + 0.05)),
-                             str1,
-                             font=self._counter_font,
-                             fill=self._counter_font_color)
-        str2 = 'crnt: ' + str(class_names[0])
-        output_img_draw.text((output_width * self._counter_location_x,
-                              output_height * self._counter_location_y),
-                             str2,
-                             font=self._counter_font,
-                             fill=self._counter_font_color)
+                io.BytesIO(font_request.content), size=font_size
+            )
+        str1 = "ref: " + str(class_name)
+        output_img_draw.text(
+            (
+                output_width * self._counter_location_x,
+                output_height * (self._counter_location_y + 0.05),
+            ),
+            str1,
+            font=self._counter_font,
+            fill=self._counter_font_color,
+        )
+        str2 = "crnt: " + str(class_names[0])
+        output_img_draw.text(
+            (
+                output_width * self._counter_location_x,
+                output_height * self._counter_location_y,
+            ),
+            str2,
+            font=self._counter_font,
+            fill=self._counter_font_color,
+        )
 
         return output_img
 
     def _plot_classification_history(self, class_name, output_width, output_height):
         fig = plt.figure(figsize=self._plot_figsize)
 
-        for classification_history in [self._pose_classification_history,
-                                       self._pose_classification_filtered_history]:
+        for classification_history in [
+            self._pose_classification_history,
+            self._pose_classification_filtered_history,
+        ]:
             y = []
             for classification in classification_history:
                 if classification is None:
@@ -595,10 +628,10 @@ class PoseClassificationVisualizer(object):
                     y.append(0)
             plt.plot(y, linewidth=7)
 
-        plt.grid(axis='y', alpha=0.75)
-        plt.xlabel('Frame')
-        plt.ylabel('Confidence')
-        plt.title('Classification history for `{}`'.format(class_name))
+        plt.grid(axis="y", alpha=0.75)
+        plt.xlabel("Frame")
+        plt.ylabel("Confidence")
+        plt.title("Classification history for `{}`".format(class_name))
         # plt.legend()
 
         if self._plot_y_max is not None:
@@ -610,7 +643,8 @@ class PoseClassificationVisualizer(object):
         buf = io.BytesIO()
         dpi = min(
             output_width * self._plot_max_width / float(self._plot_figsize[0]),
-            output_height * self._plot_max_height / float(self._plot_figsize[1]))
+            output_height * self._plot_max_height / float(self._plot_figsize[1]),
+        )
         fig.savefig(buf, dpi=dpi)
         buf.seek(0)
         img = Image.open(buf)
@@ -620,9 +654,9 @@ class PoseClassificationVisualizer(object):
 
 
 # Specify your video name and target pose class to count the repetitions.
-video_path = r'D:\videos\yoga\demo2.mp4'
-class_names = ['yoga_raise', 'yoga_stretch_arm', 'yoga_ready']
-out_video_path = r'D:\videos\yoga\demo2_out4.mp4'
+video_path = r"D:\videos\yoga\demo2.mp4"
+class_names = ["yoga_raise", "yoga_stretch_arm", "yoga_ready"]
+out_video_path = r"D:\videos\yoga\demo2_out4.mp4"
 
 # Open the video.
 
@@ -640,12 +674,12 @@ video_height = int(video_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 class_idx = 0
 # Folder with pose class CSVs. That should be the same folder you using while
 # building classifier to output CSVs.
-pose_samples_folder = r'D:\videos\yoga\yoga_csvs_out'
+pose_samples_folder = r"D:\videos\yoga\yoga_csvs_out"
 
 # Initialize tracker.
-pose_tracker = mp_pose.Pose(model_complexity=2,
-                            min_detection_confidence=0.5,
-                            min_tracking_confidence=0.5)
+pose_tracker = mp_pose.Pose(
+    model_complexity=2, min_detection_confidence=0.5, min_tracking_confidence=0.5
+)
 
 # Initialize embedder.
 pose_embedder = FullBodyPoseEmbedder()
@@ -656,36 +690,37 @@ pose_classifier = PoseClassifier(
     pose_samples_folder=pose_samples_folder,
     pose_embedder=pose_embedder,
     top_n_by_max_distance=30,
-    top_n_by_mean_distance=10)
+    top_n_by_mean_distance=10,
+)
 
 # # Uncomment to validate target poses used by classifier and find outliers.
 # outliers = pose_classifier.find_pose_sample_outliers()
 # print('Number of pose sample outliers (consider removing them): ', len(outliers))
 
 # Initialize EMA smoothing.
-pose_classification_filter = EMADictSmoothing(
-    window_size=10,
-    alpha=0.2)
+pose_classification_filter = EMADictSmoothing(window_size=10, alpha=0.2)
 
 # Initialize checker.
-pose_checker = PoseChecker(
-    enter_threshold=6,
-    exit_threshold=4
-)
+pose_checker = PoseChecker(enter_threshold=6, exit_threshold=4)
 
 # Initialize renderer.
 pose_classification_visualizer = PoseClassificationVisualizer(
     plot_x_max=video_n_frames,
     # Graphic looks nicer if it's the same as `top_n_by_mean_distance`.
-    plot_y_max=10)
+    plot_y_max=10,
+)
 
 
 # Run classification on a video.
 
 
 # Open output video.
-out_video = cv2.VideoWriter(out_video_path, cv2.VideoWriter_fourcc(
-    *'mp4v'), video_fps, (video_width, video_height))
+out_video = cv2.VideoWriter(
+    out_video_path,
+    cv2.VideoWriter_fourcc(*"mp4v"),
+    video_fps,
+    (video_width, video_height),
+)
 
 
 frame_idx = 0
@@ -713,25 +748,30 @@ while True:
         mp_drawing.draw_landmarks(
             image=output_frame,
             landmark_list=pose_landmarks,
-            connections=mp_pose.POSE_CONNECTIONS)
+            connections=mp_pose.POSE_CONNECTIONS,
+        )
 
     if pose_landmarks is not None:
         # Get landmarks.
         frame_height, frame_width = output_frame.shape[0], output_frame.shape[1]
-        pose_landmarks = np.array([[lmk.x * frame_width, lmk.y * frame_height, lmk.z * frame_width]
-                                   for lmk in pose_landmarks.landmark], dtype=np.float32)
-        assert pose_landmarks.shape == (
-            33, 3), 'Unexpected landmarks shape: {}'.format(pose_landmarks.shape)
+        pose_landmarks = np.array(
+            [
+                [lmk.x * frame_width, lmk.y * frame_height, lmk.z * frame_width]
+                for lmk in pose_landmarks.landmark
+            ],
+            dtype=np.float32,
+        )
+        assert pose_landmarks.shape == (33, 3), "Unexpected landmarks shape: {}".format(
+            pose_landmarks.shape
+        )
 
         # Classify the pose on the current frame.
         pose_classification = pose_classifier(pose_landmarks)
 
         # Smooth classification using EMA.
-        pose_classification_filtered = pose_classification_filter(
-            pose_classification)
+        pose_classification_filtered = pose_classification_filter(pose_classification)
 
-        enter, exit = pose_checker(
-            class_names[class_idx], pose_classification_filtered)
+        enter, exit = pose_checker(class_names[class_idx], pose_classification_filtered)
 
         print(f"{frame_idx} {pose_classification_filtered}")
         # if enter and not start_flag:
@@ -779,7 +819,7 @@ while True:
             pose_classification=pose_classification,
             pose_classification_filtered=pose_classification_filtered,
         )
-    cv2.imshow('predicting', np.array(output_frame))
+    cv2.imshow("predicting", np.array(output_frame))
 
     # Save the output frame.
     # out_video.write(cv2.cvtColor(np.array(output_frame), cv2.COLOR_RGB2BGR))

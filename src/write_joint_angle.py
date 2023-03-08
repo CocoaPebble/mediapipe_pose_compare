@@ -9,12 +9,18 @@ from matplotlib import pyplot as plt
 from write_mediapipe_3d_points import write_anlges_to_disk
 
 selected_jts = [
-    'left_shoulder', 'right_shoulder',
-    'left_elbow', 'right_elbow',
-    'left_wrist', 'right_wrist',
-    'left_hip', 'right_hip',
-    'left_knee', 'right_knee',
-    'left_ankle', 'right_ankle',
+    "left_shoulder",
+    "right_shoulder",
+    "left_elbow",
+    "right_elbow",
+    "left_wrist",
+    "right_wrist",
+    "left_hip",
+    "right_hip",
+    "left_knee",
+    "right_knee",
+    "left_ankle",
+    "right_ankle",
 ]
 
 
@@ -34,43 +40,65 @@ def angle_2p_3d(a, b, c):
 
 
 def get_mediapipe_joint_angles(kpts):
-    left_shoulder_angle = angle_2p_3d(kpts[selected_jts.index('left_elbow')],
-                                      kpts[selected_jts.index(
-                                          'left_shoulder')],
-                                      kpts[selected_jts.index('left_hip')])
-    left_elbow_angle = angle_2p_3d(kpts[selected_jts.index('left_wrist')],
-                                   kpts[selected_jts.index('left_elbow')],
-                                   kpts[selected_jts.index('left_shoulder')])
-    left_hip_angle = angle_2p_3d(kpts[selected_jts.index('right_hip')],
-                                 kpts[selected_jts.index('left_hip')],
-                                 kpts[selected_jts.index('left_knee')])
-    left_knee_angle = angle_2p_3d(kpts[selected_jts.index('left_hip')],
-                                  kpts[selected_jts.index('left_knee')],
-                                  kpts[selected_jts.index('left_ankle')])
+    left_shoulder_angle = angle_2p_3d(
+        kpts[selected_jts.index("left_elbow")],
+        kpts[selected_jts.index("left_shoulder")],
+        kpts[selected_jts.index("left_hip")],
+    )
+    left_elbow_angle = angle_2p_3d(
+        kpts[selected_jts.index("left_wrist")],
+        kpts[selected_jts.index("left_elbow")],
+        kpts[selected_jts.index("left_shoulder")],
+    )
+    left_hip_angle = angle_2p_3d(
+        kpts[selected_jts.index("right_hip")],
+        kpts[selected_jts.index("left_hip")],
+        kpts[selected_jts.index("left_knee")],
+    )
+    left_knee_angle = angle_2p_3d(
+        kpts[selected_jts.index("left_hip")],
+        kpts[selected_jts.index("left_knee")],
+        kpts[selected_jts.index("left_ankle")],
+    )
 
-    right_shoulder_angle = angle_2p_3d(kpts[selected_jts.index('right_elbow')],
-                                       kpts[selected_jts.index(
-                                           'right_shoulder')],
-                                       kpts[selected_jts.index('right_hip')])
-    right_elbow_angle = angle_2p_3d(kpts[selected_jts.index('right_wrist')],
-                                    kpts[selected_jts.index('right_elbow')],
-                                    kpts[selected_jts.index('right_shoulder')])
-    right_hip_angle = angle_2p_3d(kpts[selected_jts.index('left_hip')],
-                                  kpts[selected_jts.index('right_hip')],
-                                  kpts[selected_jts.index('right_knee')])
-    right_knee_angle = angle_2p_3d(kpts[selected_jts.index('right_hip')],
-                                   kpts[selected_jts.index('right_knee')],
-                                   kpts[selected_jts.index('right_ankle')])
+    right_shoulder_angle = angle_2p_3d(
+        kpts[selected_jts.index("right_elbow")],
+        kpts[selected_jts.index("right_shoulder")],
+        kpts[selected_jts.index("right_hip")],
+    )
+    right_elbow_angle = angle_2p_3d(
+        kpts[selected_jts.index("right_wrist")],
+        kpts[selected_jts.index("right_elbow")],
+        kpts[selected_jts.index("right_shoulder")],
+    )
+    right_hip_angle = angle_2p_3d(
+        kpts[selected_jts.index("left_hip")],
+        kpts[selected_jts.index("right_hip")],
+        kpts[selected_jts.index("right_knee")],
+    )
+    right_knee_angle = angle_2p_3d(
+        kpts[selected_jts.index("right_hip")],
+        kpts[selected_jts.index("right_knee")],
+        kpts[selected_jts.index("right_ankle")],
+    )
 
-    return [left_shoulder_angle, left_elbow_angle, left_hip_angle, left_knee_angle,
-            right_shoulder_angle, right_elbow_angle, right_hip_angle, right_knee_angle]
+    return [
+        left_shoulder_angle,
+        left_elbow_angle,
+        left_hip_angle,
+        left_knee_angle,
+        right_shoulder_angle,
+        right_elbow_angle,
+        right_hip_angle,
+        right_knee_angle,
+    ]
 
 
 def read_gt_pts(gt_file):
-    with open(gt_file, 'r') as f:
+    with open(gt_file, "r") as f:
         data = json.load(f)
 
-    print('reading file gt file,', gt_file)
+    print("reading file gt file,", gt_file)
     all_arr = []
     for frame in data:
         arr = []
@@ -95,22 +123,21 @@ def draw_line(errors):
     x = range(0, 100)
     plt.plot(x, errors)
     plt.xlabel("frames")
-    plt.ylabel('abs error')
+    plt.ylabel("abs error")
     plt.show()
 
 
 mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
 mp_pose = mp.solutions.pose
-pose = mp_pose.Pose(model_complexity=2,
-                    min_detection_confidence=0.5,
-                    min_tracking_confidence=0.5)
+pose = mp_pose.Pose(
+    model_complexity=2, min_detection_confidence=0.5, min_tracking_confidence=0.5
+)
 
 pose_keypoints = [16, 14, 12, 11, 13, 15, 24, 23, 25, 26, 27, 28]
 
-video_file = r'data/video/test_action.mp4'
-output_file = os.path.join(
-    'angle_output', video_file.split('/')[2][:-4]) + '.dat'
+video_file = r"data/video/test_action.mp4"
+output_file = os.path.join("angle_output", video_file.split("/")[2][:-4]) + ".dat"
 print(output_file)
 # gt_file = r'data\json\frontyoga100_2.json'
 # gt_pts = read_gt_pts(gt_file)

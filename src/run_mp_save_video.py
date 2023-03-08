@@ -1,19 +1,18 @@
 import cv2
 import mediapipe as mp
+
 mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
 mp_pose = mp.solutions.pose
 
-input_video = r'C:\Users\jyz18\Documents\realsense\rgbd_test.mp4'
-output_video = r'C:\Users\jyz18\Documents\realsense\rgbd_test_annotation.mp4'
+input_video = r"C:\Users\jyz18\Documents\realsense\rgbd_test.mp4"
+output_video = r"C:\Users\jyz18\Documents\realsense\rgbd_test_annotation.mp4"
 
-fourcc = cv2.VideoWriter_fourcc('m', 'p', 'v', '4')
+fourcc = cv2.VideoWriter_fourcc("m", "p", "v", "4")
 out = cv2.VideoWriter(output_video, fourcc, 30, (1280, 720), True)
 
 cap = cv2.VideoCapture(input_video)
-with mp_pose.Pose(
-        min_detection_confidence=0.5,
-        min_tracking_confidence=0.5) as pose:
+with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as pose:
     while cap.isOpened():
         success, image = cap.read()
         if not success:
@@ -34,9 +33,10 @@ with mp_pose.Pose(
             image,
             results.pose_landmarks,
             mp_pose.POSE_CONNECTIONS,
-            landmark_drawing_spec=mp_drawing_styles.get_default_pose_landmarks_style())
+            landmark_drawing_spec=mp_drawing_styles.get_default_pose_landmarks_style(),
+        )
         # Flip the image horizontally for a selfie-view display.
-        image = cv2.imshow('MediaPipe Pose', cv2.flip(image, 1))
+        image = cv2.imshow("MediaPipe Pose", cv2.flip(image, 1))
         out.write(image)
         if cv2.waitKey(5) & 0xFF == 27:
             break

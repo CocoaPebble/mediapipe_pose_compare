@@ -7,13 +7,14 @@ mp_drawing_styles = mp.solutions.drawing_styles
 mp_pose = mp.solutions.pose
 
 # For static images:
-IMAGE_FILES = [r'C:\Users\jyz18\Desktop\tpose5.png']
+IMAGE_FILES = [r"C:\Users\jyz18\Desktop\tpose5.png"]
 BG_COLOR = (192, 192, 192)  # gray
 with mp_pose.Pose(
-        static_image_mode=True,
-        model_complexity=2,
-        enable_segmentation=True,
-        min_detection_confidence=0.5) as pose:
+    static_image_mode=True,
+    model_complexity=2,
+    enable_segmentation=True,
+    min_detection_confidence=0.5,
+) as pose:
     for idx, file in enumerate(IMAGE_FILES):
         image = cv2.imread(file)
         image_height, image_width, _ = image.shape
@@ -23,17 +24,17 @@ with mp_pose.Pose(
         if not results.pose_landmarks:
             continue
         print(
-            f'left hand coordinates: ('
-            f'{results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.LEFT_WRIST].x}, '
-            f'{results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.LEFT_WRIST].y}, '
-            f'{results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.LEFT_WRIST].z})'
+            f"left hand coordinates: ("
+            f"{results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.LEFT_WRIST].x}, "
+            f"{results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.LEFT_WRIST].y}, "
+            f"{results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.LEFT_WRIST].z})"
         )
 
         print(
-            f'right hand coordinates: ('
-            f'{results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_WRIST].x}, '
-            f'{results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_WRIST].y}, '
-            f'{results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_WRIST].z})'
+            f"right hand coordinates: ("
+            f"{results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_WRIST].x}, "
+            f"{results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_WRIST].y}, "
+            f"{results.pose_world_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_WRIST].z})"
         )
 
         annotated_image = image.copy()
@@ -49,9 +50,10 @@ with mp_pose.Pose(
             annotated_image,
             results.pose_landmarks,
             mp_pose.POSE_CONNECTIONS,
-            landmark_drawing_spec=mp_drawing_styles.get_default_pose_landmarks_style())
-        cv2.imwrite('/tmp/annotated_image' +
-                    str(idx) + '.png', annotated_image)
+            landmark_drawing_spec=mp_drawing_styles.get_default_pose_landmarks_style(),
+        )
+        cv2.imwrite("/tmp/annotated_image" + str(idx) + ".png", annotated_image)
         # Plot pose world landmarks.
         mp_drawing.plot_landmarks(
-            results.pose_world_landmarks, mp_pose.POSE_CONNECTIONS)
+            results.pose_world_landmarks, mp_pose.POSE_CONNECTIONS
+        )
