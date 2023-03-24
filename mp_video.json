@@ -1,0 +1,23 @@
+{
+    "exercises":{
+        "bird_dog": {
+            "name": "Bird Dog",
+            "description": "Bird Dog",
+            "image": "bird_dog.png",
+            "video": "bird_dog.mp4",
+            "duration": 30,
+            "reps": 10,
+            "sets": 3
+        },
+        "burpees": {
+            "name": "Burpees",
+            "description": "Burpees",
+            "image": "burpees.png",
+            "video": "burpees.mp4",
+            "duration": 30,
+            "reps": 10,
+            "sets": 3
+        }
+        }
+    }
+}
