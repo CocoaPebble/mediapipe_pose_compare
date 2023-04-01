@@ -1,0 +1,48 @@
+{
+    "id": "1",
+    "name": "test",
+    "description": "test",
+    "type": "test",
+    "video": "test",
+    "image": "test",
+
+    "kp_amount": "6",
+    "kp_list": [
+        {
+            "kp_id": "1",
+            "kp_name": "test",
+            "kp_description": "test",
+            "kp_angles": [90, 100, 110, 120, 130, 140, 15, 20]
+        },
+        {
+            "kp_id": "2",
+            "kp_name": "test",
+            "kp_description": "test",
+            "kp_angles": [15, 20, 30, 40, 50, 60, 70, 80]
+        },
+        {
+            "kp_id": "3",
+            "kp_name": "test",
+            "kp_description": "test",
+            "kp_angles": [90, 100, 110, 120, 130, 140, 15, 20]
+        },
+        {
+            "kp_id": "4",
+            "kp_name": "test",
+            "kp_description": "test",
+            "kp_angles": [15, 20, 30, 40, 50, 60, 70, 80]
+        },
+        {
+            "kp_id": "5",
+            "kp_name": "test",
+            "kp_description": "test",
+            "kp_angles": [90, 100, 110, 120, 130, 140, 15, 20]
+        },
+        {
+            "kp_id": "6",
+            "kp_name": "test",
+            "kp_description": "test",
+            "kp_angles": [15, 20, 30, 40, 50, 60, 70, 80]
+        }
+    ]
+}

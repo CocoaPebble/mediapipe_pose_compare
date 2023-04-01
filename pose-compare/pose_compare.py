@@ -9,6 +9,7 @@ mp_drawing = mp.solutions.drawing_utils
 mp_pose = mp.solutions.pose
 mp_drawing_styles = mp.solutions.drawing_styles
 
+
 def angle_2p_3d(a, b, c):
     v1 = np.array([a[0] - b[0], a[1] - b[1], a[2] - b[2]])
     v2 = np.array([c[0] - b[0], c[1] - b[1], c[2] - b[2]])
@@ -23,6 +24,7 @@ def angle_2p_3d(a, b, c):
     angle_rad = np.arccos(res)
 
     return round(math.degrees(angle_rad), 2)
+
 
 def calc_left_knee(landmark):
     left_knee = landmark[mp_pose.PoseLandmark.LEFT_KNEE]
@@ -68,6 +70,7 @@ def calc_left_hip(landmark):
     print("Left Hip 3d Angle: ", angle)
     return angle
 
+
 def calc_left_hip_flexion(landmark):
     left_hip = landmark[mp_pose.PoseLandmark.LEFT_HIP]
     left_shoulder = landmark[mp_pose.PoseLandmark.LEFT_SHOULDER]
@@ -77,7 +80,6 @@ def calc_left_hip_flexion(landmark):
     angle = round(angle, 2)
     print("Left Hip 3d Angle: ", angle)
     return angle
-
 
 
 def calc_left_hip_2d(landmark):
@@ -191,13 +193,23 @@ if not cap.isOpened():
 frame = 0
 cap_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 cap_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-print("cap_height: ", cap_height, "cap_width: ", cap_width, "fps: ", cap.get(cv2.CAP_PROP_FPS), "\n")
+print(
+    "cap_height: ",
+    cap_height,
+    "cap_width: ",
+    cap_width,
+    "fps: ",
+    cap.get(cv2.CAP_PROP_FPS),
+    "\n",
+)
 
 previous_joint_positions = np.zeros((33, 3))
 next_joint_positions = np.zeros((33, 3))
 
+
 def euclidean_distance(point1, point2):
     return np.linalg.norm(point1 - point2)
+
 
 mean_distance_arr = []
 sum_distance_arr = []
@@ -231,17 +243,17 @@ while cap.isOpened():
     ret, image = cap.read()
     if not ret:
         break
-    
+
     frame += 1
     if frame < ref_frame:
         continue
     print("Frame: ", frame)
-    
+
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     results = pose.process(image)
     if not results.pose_landmarks:
         continue
-    
+
     image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
     mp_drawing.draw_landmarks(
         image,
@@ -249,15 +261,24 @@ while cap.isOpened():
         mp_pose.POSE_CONNECTIONS,
         landmark_drawing_spec=mp_drawing_styles.get_default_pose_landmarks_style(),
     )
-    cv2.putText(image, "Frame: " + str(frame), (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+    cv2.putText(
+        image,
+        "Frame: " + str(frame),
+        (10, 30),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        1,
+        (0, 0, 255),
+        2,
+        cv2.LINE_AA,
+    )
     cv2.imshow("MediaPipe Pose", image)
     if cv2.waitKey(5) & 0xFF == 27:
         break
-    
+
     ###############################
     landmarks = results.pose_landmarks.landmark
     landmarks_3d = results.pose_world_landmarks.landmark
-    
+
     pose3d_landmark = np.array(
         [
             [
@@ -270,7 +291,7 @@ while cap.isOpened():
         ]
     ).flatten()
     pose3d_landmark.resize((33, 4))
-    
+
     left_knee_angle = calc_left_knee(pose3d_landmark)
     right_knee_angle = calc_right_knee(pose3d_landmark)
     left_hip_angle = calc_left_hip(pose3d_landmark)
@@ -279,12 +300,11 @@ while cap.isOpened():
     right_shoulder_angle = calc_right_shoulder(pose3d_landmark)
     left_elbow_angle = calc_left_elbow(pose3d_landmark)
     right_elbow_angle = calc_right_elbow(pose3d_landmark)
-    
-    
+
     if frame == ref_frame:
         for i, landmark in enumerate(landmarks_3d):
             previous_joint_positions[i] = [landmark.x, landmark.y, landmark.z]
-        
+
         previous_left_knee_angle = left_knee_angle
         previous_right_knee_angle = right_knee_angle
         previous_left_hip_angle = left_hip_angle
@@ -293,13 +313,22 @@ while cap.isOpened():
         previous_right_shoulder_angle = right_shoulder_angle
         previous_left_elbow_angle = left_elbow_angle
         previous_right_elbow_angle = right_elbow_angle
-        
-        pre_angles = [left_knee_angle, right_knee_angle, left_hip_angle, right_hip_angle, left_shoulder_angle, right_shoulder_angle, left_elbow_angle, right_elbow_angle]
-        
+
+        pre_angles = [
+            left_knee_angle,
+            right_knee_angle,
+            left_hip_angle,
+            right_hip_angle,
+            left_shoulder_angle,
+            right_shoulder_angle,
+            left_elbow_angle,
+            right_elbow_angle,
+        ]
+
         # if not have the file to write, create it
         if not os.path.exists("log"):
             os.makedirs("log")
-        
+
         # log the joint positions and angles in file for reference
         # with open("log/" + myvideoname + "_ref.txt", "w") as f:
         #     f.write("Frame: " + str(frame) + "\n")
@@ -307,41 +336,55 @@ while cap.isOpened():
         #     f.write(str(previous_joint_positions))
         #     f.write("angles: \n")
         #     f.write(str(pre_angles))
-            
+
     if frame > ref_frame:
         for i, landmark in enumerate(landmarks_3d):
             next_joint_positions[i] = [landmark.x, landmark.y, landmark.z]
-            
+
         # Euclidean distance
-        distances = [euclidean_distance(previous_joint_positions[i], next_joint_positions[i]) for i in range(previous_joint_positions.shape[0])]
-        
+        distances = [
+            euclidean_distance(previous_joint_positions[i], next_joint_positions[i])
+            for i in range(previous_joint_positions.shape[0])
+        ]
+
         mean_distance = np.mean(distances)
         sum_distance = np.sum(distances)
         print("Mean distance:", mean_distance)
         print("Sum distance:", sum_distance)
-        
+
         # Procrustes distance
-        mtx1, mtx2, disparity = procrustes(previous_joint_positions, next_joint_positions)
+        mtx1, mtx2, disparity = procrustes(
+            previous_joint_positions, next_joint_positions
+        )
         print("Disparity:", disparity)
-        
+
         # Cosine similarity
         vector_diff = previous_joint_positions - next_joint_positions
-        previous_joint_positions_norm = previous_joint_positions / np.linalg.norm(previous_joint_positions, axis=1, keepdims=True)
-        next_joint_positions_norm = next_joint_positions / np.linalg.norm(next_joint_positions, axis=1, keepdims=True)
-        similarities = [np.dot(previous_joint_positions_norm[i], next_joint_positions_norm[i]) for i in range(previous_joint_positions_norm.shape[0])]
+        previous_joint_positions_norm = previous_joint_positions / np.linalg.norm(
+            previous_joint_positions, axis=1, keepdims=True
+        )
+        next_joint_positions_norm = next_joint_positions / np.linalg.norm(
+            next_joint_positions, axis=1, keepdims=True
+        )
+        similarities = [
+            np.dot(previous_joint_positions_norm[i], next_joint_positions_norm[i])
+            for i in range(previous_joint_positions_norm.shape[0])
+        ]
         mean_similarity = np.mean(similarities)
         sum_similarity = np.sum(similarities)
-        
+
         print("Mean similarity:", mean_similarity)
         print("Sum similarity:", sum_similarity)
-        
+
+        ###########################
+
         # Save to array
         mean_distance_arr.append(mean_distance)
         sum_distance_arr.append(sum_distance)
         disparity_arr.append(disparity)
         mean_similarity_arr.append(mean_similarity)
         sum_similarity_arr.append(sum_similarity)
-        
+
         next_left_knee_angle = left_knee_angle
         next_right_knee_angle = right_knee_angle
         next_left_hip_angle = left_hip_angle
@@ -350,30 +393,62 @@ while cap.isOpened():
         next_right_shoulder_angle = right_shoulder_angle
         next_left_elbow_angle = left_elbow_angle
         next_right_elbow_angle = right_elbow_angle
-        
+
         left_knee_angle_diff = next_left_knee_angle - previous_left_knee_angle
         right_knee_angle_diff = next_right_knee_angle - previous_right_knee_angle
         left_hip_angle_diff = next_left_hip_angle - previous_left_hip_angle
         right_hip_angle_diff = next_right_hip_angle - previous_right_hip_angle
-        left_shoulder_angle_diff = next_left_shoulder_angle - previous_left_shoulder_angle
-        right_shoulder_angle_diff = next_right_shoulder_angle - previous_right_shoulder_angle
+        left_shoulder_angle_diff = (
+            next_left_shoulder_angle - previous_left_shoulder_angle
+        )
+        right_shoulder_angle_diff = (
+            next_right_shoulder_angle - previous_right_shoulder_angle
+        )
         left_elbow_angle_diff = next_left_elbow_angle - previous_left_elbow_angle
         right_elbow_angle_diff = next_right_elbow_angle - previous_right_elbow_angle
-        print("angle diff:", left_knee_angle_diff, right_knee_angle_diff, left_hip_angle_diff, right_hip_angle_diff, left_shoulder_angle_diff, right_shoulder_angle_diff, left_elbow_angle_diff, right_elbow_angle_diff)
+        # print("angle diff:", left_knee_angle_diff, right_knee_angle_diff, left_hip_angle_diff, right_hip_angle_diff, left_shoulder_angle_diff, right_shoulder_angle_diff, left_elbow_angle_diff, right_elbow_angle_diff)
 
+        # if either angle diff is greater than 5, then print the angle name and diff
+        if abs(left_knee_angle_diff) > 5:
+            print("left knee angle diff:", left_knee_angle_diff)
+        if abs(right_knee_angle_diff) > 5:
+            print("right knee angle diff:", right_knee_angle_diff)
+        if abs(left_hip_angle_diff) > 5:
+            print("left hip angle diff:", left_hip_angle_diff)
+        if abs(right_hip_angle_diff) > 5:
+            print("right hip angle diff:", right_hip_angle_diff)
+        if abs(left_shoulder_angle_diff) > 5:
+            print("left shoulder angle diff:", left_shoulder_angle_diff)
+        if abs(right_shoulder_angle_diff) > 5:
+            print("right shoulder angle diff:", right_shoulder_angle_diff)
+        if abs(left_elbow_angle_diff) > 5:
+            print("left elbow angle diff:", left_elbow_angle_diff)
+        if abs(right_elbow_angle_diff) > 5:
+            print("right elbow angle diff:", right_elbow_angle_diff)
 
         # calculate the diff sum with absolute value
-        angle_diff_sum_abs = abs(left_knee_angle_diff) + abs(right_knee_angle_diff) + abs(left_hip_angle_diff) + abs(right_hip_angle_diff) + \
-            abs(left_shoulder_angle_diff) + abs(right_shoulder_angle_diff) + \
-            abs(left_elbow_angle_diff) + abs(right_elbow_angle_diff)
+        angle_diff_sum_abs = (
+            abs(left_knee_angle_diff)
+            + abs(right_knee_angle_diff)
+            + abs(left_hip_angle_diff)
+            + abs(right_hip_angle_diff)
+            + abs(left_shoulder_angle_diff)
+            + abs(right_shoulder_angle_diff)
+            + abs(left_elbow_angle_diff)
+            + abs(right_elbow_angle_diff)
+        )
         print("angle diff sum abs:", angle_diff_sum_abs)
-        
+
+        # if the angle diff sum is greater than 40, then print pose is not correct
+        if angle_diff_sum_abs > 40:
+            print("pose is not correct")
+
         angle_diff.append(angle_diff_sum_abs)
-        
+
     if frame == ref_frame + 300:
         # plot the line chart for array
         import matplotlib.pyplot as plt
-        
+
         # create three subplots
         fig, (ax1, ax2, ax3, ax4, ax5, ax6) = plt.subplots(6, 1)
         ax1.plot(mean_distance_arr)
@@ -390,6 +465,5 @@ while cap.isOpened():
         ax6.legend(["angle_diff"])
         # plt.legend(["mean_distance", "sum_distance", "disparity", "mean_similarity", "sum_similarity"])
         plt.show()
-        
+
     print("#" * 50)
-        
